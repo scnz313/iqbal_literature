@@ -1,0 +1,47 @@
+name: iqbal_literature
+description: A comprehensive collection of Dr. Allama Iqbal's literary works.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  get: ^4.6.5
+  sqflite: ^2.3.0
+  path: ^1.8.3
+  shared_preferences: ^2.2.0
+  google_fonts: ^5.1.0
+  cached_network_image: ^3.2.3
+  flutter_svg: ^2.0.7
+  flutter_markdown: ^0.6.17
+  provider: ^6.0.5
+  get_it: ^7.6.0
+  injectable: ^2.1.2
+  json_annotation: ^4.8.1
+  freezed_annotation: ^2.4.1
+  cupertino_icons: ^1.0.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.2
+  build_runner: ^2.4.6
+  freezed: ^2.4.2
+  json_serializable: ^6.7.1
+  injectable_generator: ^2.1.6
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/icons/
+    - assets/images/illustrations/
+    - assets/database/
+  fonts:
+    - family: JameelNooriNastaleeq
+      fonts:
+        - asset: assets/fonts/jameel_noori_nastaleeq.ttf
