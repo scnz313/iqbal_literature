@@ -4,44 +4,96 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.0.0 <4.0.0'
+  sdk: '>=3.2.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
+  cached_network_image: ^3.3.1
   flutter_localizations:
     sdk: flutter
-  get: ^4.6.5
+  flutter_services_binding: ^0.1.0
+
+  # State Management
+  get: ^4.6.6
+
+  # Database and Storage
   sqflite: ^2.3.0
   path: ^1.8.3
-  shared_preferences: ^2.2.0
-  google_fonts: ^5.1.0
-  cached_network_image: ^3.2.3
-  flutter_svg: ^2.0.7
-  flutter_markdown: ^0.6.17
-  provider: ^6.0.5
-  get_it: ^7.6.0
-  injectable: ^2.1.2
+  shared_preferences: ^2.2.2
+  path_provider: ^2.1.1
+
+
+  # Firebase
+  firebase_core: ^2.27.0
+  cloud_firestore: ^4.14.0
+  firebase_analytics: ^10.8.9
+  firebase_auth: ^4.17.8
+  firebase_crashlytics: ^3.4.18
+  firebase_performance: ^0.9.3+8
+
+  # UI Components
+  flutter_native_splash: ^2.3.8
+  device_preview: ^1.1.0
+  flutter_screenutil: ^5.9.0
+  google_fonts: ^6.1.0
+  flutter_svg: ^2.0.9
+  flutter_markdown: ^0.6.18+2
+  shimmer: ^3.0.0
+
+  # Utils
   json_annotation: ^4.8.1
   freezed_annotation: ^2.4.1
-  cupertino_icons: ^1.0.5
+  package_info_plus: ^5.0.1
+  intl: ^0.19.0
+  url_launcher: ^6.2.2
+  share_plus: ^7.2.1
+  connectivity_plus: ^5.0.2
+  permission_handler: ^11.1.0
+
+  # Icons
+  cupertino_icons: ^1.0.6
+  font_awesome_flutter: ^10.6.0
+  get_it: ^8.0.3
+  equatable: ^2.0.7
+  firebase_storage: ^11.6.9
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^2.0.2
-  build_runner: ^2.4.6
-  freezed: ^2.4.2
+  flutter_lints: ^3.0.1
+  build_runner: ^2.4.14
+  freezed: ^2.4.5
   json_serializable: ^6.7.1
-  injectable_generator: ^2.1.6
+  mockito: ^5.4.5
+  flutter_driver:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  test: ^1.25.8
+  get_test: ^4.0.1
+  firebase_core_platform_interface: ^5.4.0
 
 flutter:
   uses-material-design: true
   assets:
     - assets/images/icons/
     - assets/images/illustrations/
-    - assets/database/
+    - assets/database/data.db
+    - assets/fonts/
+    - assets/fonts/JameelNooriNastaleeq.ttf
+    - assets/images/notebook_lines.png
+  
   fonts:
     - family: JameelNooriNastaleeq
       fonts:
-        - asset: assets/fonts/jameel_noori_nastaleeq.ttf
+        - asset: assets/fonts/JameelNooriNastaleeq.ttf
+
+flutter_native_splash:
+  color: "#FFFFFF"
+  image: assets/images/icons/splash_icon.png
+  color_dark: "#121212"
+  image_dark: assets/images/icons/splash_icon_dark.png
+  android: true
+  ios: true
+  web: false
