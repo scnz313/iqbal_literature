@@ -23,9 +23,7 @@ migrate_working_dir/
 # is commented out by default.
 .vscode/
 
-# Flutter/Dart specific
-**/doc/api/
-**/ios/Flutter/.last_build_id
+# Dart/Flutter
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
@@ -33,7 +31,7 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 build/
-lib/generated_plugin_registrant.dart
+coverage/
 
 # Android specific
 **/android/**/gradle-wrapper.jar
@@ -44,8 +42,7 @@ lib/generated_plugin_registrant.dart
 **/android/**/GeneratedPluginRegistrant.*
 
 # iOS specific
-**/ios/Flutter/Generated.xcconfig
-**/ios/Flutter/flutter_export_environment.sh
+**/ios/Flutter/.last_build_id
 **/ios/**/*.mode1v3
 **/ios/**/*.mode2v3
 **/ios/**/*.moved-aside
@@ -57,8 +54,9 @@ lib/generated_plugin_registrant.dart
 **/ios/.symlinks/
 **/ios/Flutter/App.framework
 **/ios/Flutter/Flutter.framework
-**/ios/Flutter/Flutter.podspec
+**/ios/Flutter.podspec
 **/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/flutter_export_environment.sh
 
 # Firebase config files
 **/android/app/google-services.json
@@ -68,6 +66,8 @@ lib/generated_plugin_registrant.dart
 .idea/
 .vscode/
 *.iml
+*.ipr
+*.iws
 
 # Other
 *.log
