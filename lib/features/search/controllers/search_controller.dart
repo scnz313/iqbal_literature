@@ -27,13 +27,21 @@ class SearchController extends GetxController {
 
   void onSearchChanged(String query) {
     if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
-    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+    
+    // Clear results if query is empty
+    if (query.isEmpty) {
+      searchResults.clear();
+      return;
+    }
+
+    // Debounce search
+    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
       performSearch(query);
     });
   }
 
   Future<void> performSearch(String query) async {
-    if (query.isEmpty) {
+    if (query.trim().isEmpty) {
       searchResults.clear();
       return;
     }
@@ -41,14 +49,31 @@ class SearchController extends GetxController {
     try {
       isLoading.value = true;
       error.value = '';
-
-      final books = await _searchBooks(query);
-      final poems = await _searchPoems(query);
       
-      searchResults.assignAll([...books, ...poems]);
+      debugPrint('🔍 Starting search for: $query');
+
+      // Perform searches in parallel
+      final results = await Future.wait([
+        _searchBooks(query),
+        _searchPoems(query),
+      ]);
+
+      final books = results[0];
+      final poems = results[1];
+
+      // Sort and combine results
+      final allResults = [...books, ...poems];
+      
+      debugPrint('📊 Search Results:');
+      debugPrint('Books found: ${books.length}');
+      debugPrint('Poems found: ${poems.length}');
+      debugPrint('Total results: ${allResults.length}');
+
+      searchResults.assignAll(allResults);
+
     } catch (e) {
       error.value = 'Search failed: $e';
-      debugPrint('Search error: $e');
+      debugPrint('❌ Search error: $e');
     } finally {
       isLoading.value = false;
     }

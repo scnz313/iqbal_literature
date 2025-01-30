@@ -10,7 +10,7 @@ class Poem extends Equatable {
   final String title;
   final String data;
   final int bookId;
-  final List<Line>? lines;
+  final List<String>? lines;
 
   const Poem({
     required this.id,
@@ -21,61 +21,49 @@ class Poem extends Equatable {
     this.lines,
   });
 
-  factory Poem.fromMap(Map<String, dynamic> data) {
+  factory Poem.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data()!;
+    
+    // Ensure book_id is properly converted to int
+    final bookId = data['book_id'];
+    if (bookId == null) {
+      throw Exception('book_id is required');
+    }
+    
+    debugPrint('Converting Firestore doc ${doc.id}:');
+    debugPrint('Raw book_id: $bookId (${bookId.runtimeType})');
+
     return Poem(
-      id: data['id']?.toString() ?? '',
-      numericId: data['_id'] as int? ?? 0,
-      title: data['title'] as String? ?? '',
-      data: data['data'] as String? ?? '',
-      bookId: data['book_id'] as int? ?? 0,
-      lines: const [], // Lines will be loaded separately
+      id: doc.id,
+      numericId: data['_id'] ?? 0,
+      title: data['title'] ?? '',
+      data: data['data'] ?? '',
+      bookId: bookId is int ? bookId : int.parse(bookId.toString()),
+      lines: data['lines'] != null ? List<String>.from(data['lines']) : null,
     );
   }
 
-  Map<String, dynamic> toMap() => {
-    'id': id,
-    '_id': numericId,
-    'title': title,
-    'data': data,
-    'book_id': bookId,
-    'lines': lines?.map((line) => line.toMap()).toList(),
-  };
+  factory Poem.fromMap(Map<String, dynamic> map) {
+    return Poem(
+      id: map['_id']?.toString() ?? '',
+      numericId: map['_id'] ?? 0,
+      title: map['title'] ?? '',
+      data: map['data'] ?? '',
+      bookId: map['book_id'] ?? 0,
+      lines: map['lines'] != null 
+          ? List<String>.from(map['lines']) 
+          : null,
+    );
+  }
 
-  factory Poem.fromFirestore(DocumentSnapshot doc) {
-    try {
-      final data = doc.data() as Map<String, dynamic>;
-      debugPrint('Converting Firestore data for ${doc.id}: $data');
-
-      // Parse book_id with detailed logging
-      final rawBookId = data['book_id'];
-      debugPrint('Raw book_id: $rawBookId (${rawBookId.runtimeType})');
-      
-      int bookId;
-      if (rawBookId is int) {
-        bookId = rawBookId;
-      } else if (rawBookId is String) {
-        bookId = int.tryParse(rawBookId) ?? 0;
-      } else if (rawBookId is num) {
-        bookId = rawBookId.toInt();
-      } else {
-        debugPrint('⚠️ Unexpected book_id type: ${rawBookId.runtimeType}');
-        bookId = 0;
-      }
-      
-      debugPrint('Parsed book_id: $bookId');
-
-      return Poem(
-        id: doc.id,
-        numericId: (data['_id'] as num?)?.toInt() ?? 0,
-        title: data['title']?.toString() ?? '',
-        data: data['data']?.toString() ?? '',
-        bookId: bookId,
-      );
-    } catch (e, stack) {
-      debugPrint('❌ Error parsing poem ${doc.id}: $e');
-      debugPrint('Stack trace: $stack');
-      rethrow;
-    }
+  Map<String, dynamic> toMap() {
+    return {
+      '_id': numericId,
+      'title': title,
+      'data': data,
+      'book_id': bookId,
+      if (lines != null) 'lines': lines,
+    };
   }
 
   Poem copyWith({
@@ -84,7 +72,7 @@ class Poem extends Equatable {
     int? bookId,
     String? title,
     String? data,
-    List<Line>? lines,
+    List<String>? lines,
   }) => Poem(
     id: id ?? this.id,
     numericId: numericId ?? this.numericId,
@@ -94,11 +82,23 @@ class Poem extends Equatable {
     lines: lines ?? this.lines,
   );
 
+  String get cleanData {
+    // Remove line numbers and clean up the text
+    final lines = data.split('\n');
+    final cleanedLines = lines.map((line) {
+      // Remove line numbers (e.g., "1. " or "10. ")
+      final cleaned = line.replaceAll(RegExp(r'^\d+\.\s*'), '');
+      return cleaned.trim();
+    }).where((line) => line.isNotEmpty).toList();
+    
+    return cleanedLines.join('\n');
+  }
+
   @override
   List<Object> get props => [id, numericId, bookId, title, data, lines ?? []];
 
   @override
-  String toString() => 'Poem(id: $id, title: $title)';
+  String toString() => 'Poem(id: $id, numericId: $numericId, title: $title, bookId: $bookId)';
 
   @override
   bool operator ==(Object other) =>

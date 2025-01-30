@@ -10,52 +10,37 @@ class PoemRepository {
 
   PoemRepository(this._firestore);
 
-  Future<List<Poem>> getAllPoems({String? lastDocumentId, int? limit}) async {
+  Future<List<Poem>> getAllPoems() async {
     try {
-      debugPrint('Fetching all poems, lastDocId: $lastDocumentId, limit: $limit');
+      debugPrint('📚 Fetching all poems');
 
-      Query<Map<String, dynamic>> query = _firestore
-          .collection(_collection)
-          .orderBy('_id')  // Changed to _id to match existing index
-          .orderBy('__name__')  // Added to match index
-          .limit(limit ?? 20);
+      // Remove any limit and fetch all documents
+      final QuerySnapshot<Map<String, dynamic>> snapshot = await _firestore
+          .collection('poems')
+          .orderBy('_id')
+          .get();  // No limit here
 
-      if (lastDocumentId != null) {
-        final lastDoc = await _firestore
-            .collection(_collection)
-            .doc(lastDocumentId)
-            .get();
-            
-        debugPrint('Last document exists: ${lastDoc.exists}');
-        
-        if (lastDoc.exists) {
-          query = query.startAfterDocument(lastDoc);
-        }
-      }
-
-      final snapshot = await query.get();
-      debugPrint('Found ${snapshot.docs.length} poems');
+      debugPrint('📝 Total poems found: ${snapshot.docs.length}');
 
       final poems = snapshot.docs.map((doc) {
         try {
           final poem = Poem.fromFirestore(doc);
-          debugPrint('Parsed poem: ${poem.id} - ${poem.title}');
+          debugPrint('Processing poem ${poem.id}: ${poem.title}');
           return poem;
         } catch (e) {
-          debugPrint('Error parsing poem ${doc.id}: $e');
+          debugPrint('❌ Error parsing poem ${doc.id}: $e');
           return null;
         }
       }).whereType<Poem>().toList();
 
-      debugPrint('Successfully parsed ${poems.length} poems');
+      // Sort poems by _id if needed
+      poems.sort((a, b) => a.id.compareTo(b.id));
+
+      debugPrint('✅ Successfully loaded ${poems.length} poems');
       return poems;
 
     } catch (e) {
-      debugPrint('Error fetching poems: $e');
-      if (e is FirebaseException) {
-        debugPrint('Firebase error code: ${e.code}');
-        debugPrint('Firebase error message: ${e.message}');
-      }
+      debugPrint('❌ Error fetching all poems: $e');
       return [];
     }
   }
@@ -76,40 +61,55 @@ class PoemRepository {
 
   Future<List<Poem>> getPoemsByBookId(int bookId) async {
     try {
-      debugPrint('🔎 Starting query for book_id: $bookId');
+      debugPrint('🔥 FIRESTORE QUERY: book_id=$bookId (${bookId.runtimeType})');
 
-      // Debug the exact query parameters
-      debugPrint('Query parameters - book_id: $bookId (${bookId.runtimeType})');
-
-      final querySnapshot = await _firestore
+      // Ensure we're querying with an integer
+      final QuerySnapshot<Map<String, dynamic>> snapshot = await _firestore
           .collection('poems')
           .where('book_id', isEqualTo: bookId)
+          .orderBy('_id')
           .get();
 
-      // Debug the raw results
-      debugPrint('📚 Raw query results:');
-      for (var doc in querySnapshot.docs) {
+      debugPrint('📝 Raw query returned ${snapshot.docs.length} documents');
+
+      // Debug each document
+      snapshot.docs.forEach((doc) {
         final data = doc.data();
-        debugPrint('Document ${doc.id}: $data');
-        debugPrint('book_id from doc: ${data['book_id']} (${data['book_id'].runtimeType})');
+        debugPrint('📄 Poem ${doc.id}:');
+        debugPrint('  - book_id: ${data['book_id']} (${data['book_id'].runtimeType})');
+        debugPrint('  - title: ${data['title']}');
+      });
+
+      // Process with strict type checking
+      final poems = <Poem>[];
+      for (var doc in snapshot.docs) {
+        try {
+          final data = doc.data();
+          final docBookId = data['book_id'];
+          
+          // Ensure exact numeric match
+          if (docBookId is int && docBookId == bookId) {
+            final poem = Poem.fromFirestore(doc);
+            poems.add(poem);
+            debugPrint('✅ Added poem: ${poem.title}');
+          } else {
+            debugPrint('❌ Skipped poem ${doc.id} - wrong book_id type or value');
+          }
+        } catch (e) {
+          debugPrint('❌ Error processing doc: $e');
+        }
       }
 
-      if (querySnapshot.docs.isEmpty) {
-        debugPrint('❌ No poems found for book_id: $bookId');
-        return [];
-      }
+      // Final validation
+      final uniqueBookIds = poems.map((p) => p.bookId).toSet();
+      debugPrint('📊 Results:');
+      debugPrint('- Total poems: ${poems.length}');
+      debugPrint('- Unique book IDs: $uniqueBookIds');
 
-      final poems = querySnapshot.docs
-          .map((doc) => Poem.fromFirestore(doc))
-          .toList();
-
-      debugPrint('✅ Successfully mapped ${poems.length} poems for book_id: $bookId');
       return poems;
-
-    } catch (e, stack) {
-      debugPrint('❌ Repository error: $e');
-      debugPrint('Stack trace: $stack');
-      rethrow;
+    } catch (e) {
+      debugPrint('❌ Query Error: $e');
+      return [];
     }
   }
 
@@ -137,40 +137,83 @@ class PoemRepository {
     }
   }
 
-  Future<List<Poem>> searchPoems(String query, {int? limit}) async {
+  Future<List<Poem>> searchPoems(String query) async {
     try {
       debugPrint('🔍 Searching poems with query: $query');
       
-      // Using index: data (Ascending), _id (Ascending), __name__ (Ascending)
-      final snapshot = await _firestore
+      // Normalize query for both English and Urdu
+      final normalizedQuery = _normalizeText(query);
+      final List<String> searchTerms = _generateSearchTerms(normalizedQuery);
+      
+      debugPrint('Search terms: $searchTerms');
+
+      // Query Firestore
+      final QuerySnapshot<Map<String, dynamic>> snapshot = await _firestore
           .collection('poems')
-          .where('data', isGreaterThanOrEqualTo: query)
-          .where('data', isLessThan: '$query\uf8ff')
-          .orderBy('data')
-          .orderBy('_id')
-          .orderBy('__name__')
-          .limit(limit ?? 20)
+          .where('search_terms', arrayContainsAny: searchTerms)
           .get();
 
-      debugPrint('📚 Found ${snapshot.docs.length} matching poems');
+      debugPrint('Found ${snapshot.docs.length} potential matches');
 
-      final poems = snapshot.docs.map((doc) {
+      final poems = <Poem>[];
+      for (var doc in snapshot.docs) {
         try {
           final data = doc.data();
-          debugPrint('Processing doc ${doc.id}: ${data['title']}');
-          return Poem.fromMap(data);
+          if (_isRelevantMatch(data, normalizedQuery)) {
+            final poem = Poem.fromFirestore(doc);
+            poems.add(poem);
+          }
         } catch (e) {
-          debugPrint('❌ Error parsing poem ${doc.id}: $e');
-          return null;
+          debugPrint('Error processing doc: $e');
         }
-      }).whereType<Poem>().toList();
+      }
 
-      debugPrint('✅ Successfully parsed ${poems.length} poems');
       return poems;
-
     } catch (e) {
-      debugPrint('❌ Search error: $e');
+      debugPrint('Search error: $e');
       return [];
     }
+  }
+
+  String _normalizeText(String text) {
+    return text
+        .replaceAll('ی', 'ي')
+        .replaceAll('ک', 'ك')
+        .replaceAll('ہ', 'ه')
+        .replaceAll('ئ', 'ي')
+        .replaceAll('\u200C', '') // Remove zero-width non-joiner
+        .replaceAll('\u200B', '') // Remove zero-width space
+        .replaceAll(RegExp(r'\s+'), ' ') // Normalize spaces
+        .trim()
+        .toLowerCase();
+  }
+
+  List<String> _generateSearchTerms(String query) {
+    final terms = <String>[];
+    // Add original query
+    terms.add(query);
+    
+    // Add individual words
+    terms.addAll(query.split(' '));
+    
+    // Add partial matches (for Urdu)
+    if (query.length > 2) {
+      for (int i = 2; i <= query.length; i++) {
+        terms.add(query.substring(0, i));
+      }
+    }
+    
+    return terms.where((term) => term.isNotEmpty).toList();
+  }
+
+  bool _isRelevantMatch(Map<String, dynamic> data, String query) {
+    final title = _normalizeText(data['title'] ?? '');
+    final content = _normalizeText(data['data'] ?? '');
+    
+    return title.contains(query) || 
+           content.contains(query) ||
+           query.split(' ').every((word) => 
+             title.contains(word) || content.contains(word)
+           );
   }
 }

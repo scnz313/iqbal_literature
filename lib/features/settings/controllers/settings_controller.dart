@@ -25,12 +25,14 @@ class SettingsController extends GetxController {
   final RxString currentTheme = 'system'.obs;
   final RxString cacheSize = '0.00'.obs;
   String appVersion = '';
+  final fontScale = 1.0.obs;
+  final isNightModeScheduled = false.obs;
+  final selectedLanguage = 'en'.obs;
 
   @override
   void onInit() {
     super.onInit();
     loadSettings();
-    calculateCacheSize();
     getAppVersion();
     _analyticsService.logEvent(
       name: 'screen_view',
@@ -165,5 +167,21 @@ class SettingsController extends GetxController {
         ],
       ),
     );
+  }
+
+  void setFontScale(double scale) {
+    fontScale.value = scale;
+    // ...store in SharedPreferences...
+  }
+
+  void toggleLanguage(String langCode) {
+    selectedLanguage.value = langCode;
+    Get.updateLocale(Locale(langCode));
+    // ...store in SharedPreferences...
+  }
+
+  void enableNightModeSchedule(bool value) {
+    isNightModeScheduled.value = value;
+    // ...implementation...
   }
 }

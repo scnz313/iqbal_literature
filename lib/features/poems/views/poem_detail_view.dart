@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';  // Add this import for Clipboard
 import 'package:get/get.dart';
 import '../controllers/poem_controller.dart';
 import '../../../data/models/poem/poem.dart';
@@ -58,29 +59,102 @@ class PoemDetailView extends GetView<PoemController> {
             icon: const Icon(Icons.share),
             onPressed: () => controller.sharePoem(poem),
           ),
+          IconButton(
+            icon: const Icon(Icons.copy),
+            onPressed: () {
+              final textToCopy = '${poem.title}\n\n${poem.cleanData}';
+              Clipboard.setData(ClipboardData(text: textToCopy));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Poem copied to clipboard')),
+              );
+            },
+          ),
         ],
       ),
-      body: Container(
-        color: Theme.of(context).colorScheme.surface,
+      body: _buildPoemContent(context, poem),
+    );
+  }
+
+  Widget _buildPoemContent(BuildContext context, Poem poem) {
+    return Center(  // Center the content
+      child: Container(
+        constraints: const BoxConstraints(
+          maxWidth: 600,  // Limit maximum width
+        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 24.0,
+          vertical: 16.0,
+        ),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.stretch,  // Stretch content
             children: [
-              for (int stanzaIndex = 0; stanzaIndex < stanzas.length; stanzaIndex++) ...[
-                StanzaWidget(
-                  stanza: stanzas[stanzaIndex],
-                  stanzaNumber: stanzaIndex + 1,
-                  totalStanzas: stanzas.length,
+              // Title
+              SelectableText(  // Changed from Text to SelectableText
+                poem.title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontFamily: 'JameelNooriNastaleeq',
+                  fontSize: 24,
+                  height: 2.0,
+                  fontWeight: FontWeight.bold,
                 ),
-                if (stanzaIndex < stanzas.length - 1)
-                  const SizedBox(height: 24), // Space between stanzas
-              ],
+                textDirection: TextDirection.rtl,
+              ),
+              const SizedBox(height: 24),
+              
+              // Poem content with selection enabled
+              SelectableText(  // Changed from Text to SelectableText
+                poem.cleanData,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontFamily: 'JameelNooriNastaleeq',
+                  fontSize: 20,
+                  height: 2.5,  // Increase line height
+                  letterSpacing: 0.5,
+                ),
+                textDirection: TextDirection.rtl,
+                contextMenuBuilder: (context, editableTextState) {
+                  return AdaptiveTextSelectionToolbar(
+                    anchors: editableTextState.contextMenuAnchors,
+                    children: [
+                      // Copy button
+                      InkWell(
+                        onTap: () {
+                          final data = editableTextState.textEditingValue.text;
+                          Clipboard.setData(ClipboardData(text: data));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Text copied!')),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          child: const Text('Copy'),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  String _formatPoemText(String text) {
+    // Split into lines and clean up
+    final lines = text.split('\n')
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty)
+        .toList();
+
+    // Join with proper spacing
+    return lines.join('\n\n');
   }
 }
 

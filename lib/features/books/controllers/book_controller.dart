@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../../config/routes/app_pages.dart';  // Add this import
 import '../../../data/models/book/book.dart';
 import '../../../data/repositories/book_repository.dart';
 import '../../../data/services/analytics_service.dart';
@@ -79,12 +80,18 @@ class BookController extends GetxController {
   }
 
   void onBookTap(Book book) {
+    debugPrint('📘 Book Selected:');
+    debugPrint('- ID: ${book.id} (${book.id.runtimeType})');
+    debugPrint('- Name: ${book.name}');
+    
     _analyticsService.logBookView(book.id, book.name);
+    
     Get.toNamed(
-      '/poems',
+      Routes.bookPoems,
       arguments: {
-        'book_id': book.id,
+        'book_id': book.id,  // Ensure this is an integer
         'book_name': book.name,
+        'view_type': 'book_specific'
       },
     );
   }

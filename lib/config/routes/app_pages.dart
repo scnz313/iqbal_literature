@@ -6,6 +6,7 @@ import '../../features/poems/views/poem_detail_view.dart';
 import '../../features/poems/bindings/poem_binding.dart';
 import '../../features/search/screens/search_screen.dart';
 import '../../features/settings/screens/settings_screen.dart';
+import '../../features/search/bindings/search_binding.dart';
 
 class Routes {
   static const String home = '/';
@@ -14,6 +15,7 @@ class Routes {
   static const String poemDetail = '/poem-detail';
   static const String search = '/search';
   static const String settings = '/settings';
+  static const String bookPoems = '/book-poems'; // Add this new route
 }
 
 class AppPages {
@@ -35,7 +37,7 @@ class AppPages {
       name: Routes.poems,
       page: () => const PoemsScreen(),
       binding: PoemBinding(),
-      transition: Transition.rightToLeft,
+      transition: Transition.fadeIn,
     ),
     GetPage(
       name: Routes.poemDetail,
@@ -45,12 +47,19 @@ class AppPages {
     GetPage(
       name: Routes.search,
       page: () => const SearchScreen(),
+      binding: SearchBinding(),
       transition: Transition.fadeIn,
     ),
     GetPage(
       name: Routes.settings,
       page: () => const SettingsScreen(),
       transition: Transition.fadeIn,
+    ),
+    GetPage(
+      name: Routes.bookPoems,  // Add new route for book-specific poems
+      page: () => const PoemsScreen(),
+      binding: PoemBinding(),
+      transition: Transition.rightToLeft,
     ),
   ];
 }

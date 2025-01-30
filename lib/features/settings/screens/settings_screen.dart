@@ -15,18 +15,14 @@ class SettingsScreen extends GetView<SettingsController> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Language Section
-          _buildSection(
-            context,
-            title: 'Language',
-            icon: Icons.language,
-            child: Obx(() => Column(
-              children: [
-                _buildLanguageOption(context, 'English', 'en'),
-                _buildLanguageOption(context, 'اردو', 'ur'),
-              ],
-            )),
-          ),
+          // Language Toggle
+          Obx(() => SwitchListTile(
+                title: const Text('Urdu'),
+                value: controller.selectedLanguage.value == 'ur',
+                onChanged: (bool isUrdu) {
+                  controller.toggleLanguage(isUrdu ? 'ur' : 'en');
+                },
+              )),
 
           const SizedBox(height: 16),
 
@@ -46,26 +42,27 @@ class SettingsScreen extends GetView<SettingsController> {
 
           const SizedBox(height: 16),
 
-          // Storage Section
-          _buildSection(
-            context,
-            title: 'Storage',
-            icon: Icons.storage,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Obx(() => Text(
-                  'Cache Size: ${controller.cacheSize.value} MB',
-                  style: Theme.of(context).textTheme.bodyMedium,
+          // Font Resize
+          ListTile(
+            title: const Text('Font Size'),
+            subtitle: Obx(() => Slider(
+                  value: controller.fontScale.value,
+                  min: 0.8,
+                  max: 1.5,
+                  onChanged: (val) => controller.setFontScale(val),
                 )),
-                const SizedBox(height: 8),
-                ElevatedButton(
-                  onPressed: controller.clearCache,
-                  child: const Text('Clear Cache'),
-                ),
-              ],
-            ),
           ),
+
+          const SizedBox(height: 16),
+
+          // Night Mode Scheduler
+          Obx(() => SwitchListTile(
+                title: const Text('Enable Night Mode Scheduler'),
+                value: controller.isNightModeScheduled.value,
+                onChanged: (bool val) {
+                  controller.enableNightModeSchedule(val);
+                },
+              )),
 
           const SizedBox(height: 16),
 

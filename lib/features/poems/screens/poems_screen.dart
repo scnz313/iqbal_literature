@@ -7,18 +7,54 @@ import '../../../data/models/poem/poem.dart';
 class PoemsScreen extends GetView<PoemController> {
   const PoemsScreen({super.key});
 
+  Widget _buildErrorWidget(BuildContext context, String error) {
+    final args = Get.arguments;
+    final bookId = args?['book_id'];
+    
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            error,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+          const SizedBox(height: 16),
+          if (bookId != null)
+            ElevatedButton.icon(
+              onPressed: () => controller.loadPoemsByBookId(bookId),
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _getTitle() {
+    final args = Get.arguments;
+    final viewType = args?['view_type'];
+    final bookName = args?['book_name'];
+
+    if (viewType == 'book_specific' && bookName != null) {
+      return bookName;
+    }
+    return 'All Poems';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Obx(() => Text(
-          controller.currentBookName.value,
+        title: Text(
+          _getTitle(),
           style: const TextStyle(
             fontFamily: 'JameelNooriNastaleeq',
             fontSize: 22,
           ),
           textDirection: TextDirection.rtl,
-        )),
+        ),
         actions: [
           // Add debug button in debug mode
           if (kDebugMode)
@@ -26,12 +62,17 @@ class PoemsScreen extends GetView<PoemController> {
               icon: const Icon(Icons.bug_report),
               onPressed: () {
                 final args = Get.arguments;
-                debugPrint('Current arguments: $args');
+                debugPrint('=== DEBUG INFO ===');
+                debugPrint('Arguments: $args');
                 debugPrint('Current book name: ${controller.currentBookName.value}');
-                debugPrint('Loaded poems: ${controller.poems.length}');
+                debugPrint('View type: ${controller.viewType.value}');
+                debugPrint('Total poems: ${controller.poems.length}');
                 if (controller.poems.isNotEmpty) {
+                  final uniqueBookIds = controller.poems.map((p) => p.bookId).toSet();
+                  debugPrint('Unique book IDs in poems: $uniqueBookIds');
                   debugPrint('First poem: ${controller.poems.first.toMap()}');
                 }
+                debugPrint('==================');
               },
             ),
         ],
@@ -44,32 +85,13 @@ class PoemsScreen extends GetView<PoemController> {
         }
 
         if (controller.error.value.isNotEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  controller.error.value,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyLarge,
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: () => controller.loadPoemsByBookId(
-                    Get.arguments['book_id']
-                  ),
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Retry'),
-                ),
-              ],
-            ),
-          );
+          return _buildErrorWidget(context, controller.error.value);
         }
 
         if (controller.poems.isEmpty) {
           return Center(
             child: Text(
-              'No poems found for this book',
+              'No poems found',
               style: Theme.of(context).textTheme.bodyLarge,
               textAlign: TextAlign.center,
             ),
@@ -134,10 +156,10 @@ class PoemCard extends StatelessWidget {
                       ),
                       textDirection: TextDirection.rtl,
                     ),
-                    if (poem.data.isNotEmpty) ...[
+                    if (poem.cleanData.isNotEmpty) ...[
                       const SizedBox(height: 8),
                       Text(
-                        poem.data.split('\n').first,
+                        poem.cleanData.split('\n').first,
                         textAlign: TextAlign.right,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

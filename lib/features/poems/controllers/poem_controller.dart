@@ -17,34 +17,38 @@ class PoemController extends GetxController {
   final RxBool isLoading = false.obs;
   final RxString error = ''.obs;
   final RxSet<String> favorites = <String>{}.obs;
+  final RxString viewType = ''.obs;
 
   @override
   void onInit() {
     super.onInit();
     _loadFavorites();
+    
+    debugPrint('=== POEM CONTROLLER INIT ===');
     final args = Get.arguments;
-    debugPrint('📥 Received arguments: $args');
+    debugPrint('📥 Arguments received: $args');
     
     if (args != null && args is Map<String, dynamic>) {
       final bookId = args['book_id'];
       final bookName = args['book_name'];
+      final viewType = args['view_type'];
       
-      debugPrint('🔍 Loading poems for book: $bookId ($bookName)');
+      debugPrint('📄 Parsed arguments:');
+      debugPrint('- Book ID: $bookId (${bookId?.runtimeType})');
+      debugPrint('- Book Name: $bookName');
+      debugPrint('- View Type: $viewType');
+      
       currentBookName.value = bookName ?? '';
-      
-      if (bookId != null) {
-        // Ensure bookId is an integer
-        final actualBookId = bookId is int ? bookId : int.tryParse(bookId.toString()) ?? 0;
-        if (actualBookId > 0) {
-          loadPoemsByBookId(actualBookId);
-        } else {
-          error.value = 'Invalid book ID';
-          debugPrint('❌ Invalid book ID: $bookId');
-        }
+      viewType.value = viewType ?? '';
+
+      if (bookId != null && viewType == 'book_specific') {
+        loadPoemsByBookId(bookId);
+      } else {
+        loadAllPoems();
       }
     } else {
-      debugPrint('❌ No valid arguments received');
-      error.value = 'No book selected';
+      debugPrint('❌ No arguments - defaulting to all poems');
+      loadAllPoems();
     }
   }
 
@@ -71,29 +75,92 @@ class PoemController extends GetxController {
     _saveFavorites();
   }
 
-  Future<void> loadPoemsByBookId(int bookId) async {
+  void _debugPrintBookInfo(int bookId, List<Poem> poems) {
+    debugPrint('📊 Book Poems Debug Info:');
+    debugPrint('Book ID: $bookId');
+    debugPrint('Total poems found: ${poems.length}');
+    debugPrint('Unique book IDs in results: ${poems.map((p) => p.bookId).toSet()}');
+    if (poems.isNotEmpty) {
+      debugPrint('First poem info:');
+      debugPrint('- Title: ${poems.first.title}');
+      debugPrint('- Book ID: ${poems.first.bookId}');
+    }
+  }
+
+  Future<void> loadPoemsByBookId(dynamic bookId) async {
     try {
-      debugPrint('⏳ Loading poems for book_id: $bookId');
+      debugPrint('🔄 Loading poems for book: $bookId');
+      debugPrint('📥 Initial poems count: ${poems.length}');
+      
       isLoading.value = true;
       error.value = '';
+      poems.clear(); // Clear existing poems
+
+      final int actualBookId;
+      if (bookId is int) {
+        actualBookId = bookId;
+      } else if (bookId is String) {
+        actualBookId = int.tryParse(bookId) ?? 0;
+      } else {
+        actualBookId = 0;
+      }
+
+      if (actualBookId <= 0) {
+        error.value = 'Invalid book ID';
+        return;
+      }
+
+      final result = await _poemRepository.getPoemsByBookId(actualBookId);
+      debugPrint('📦 Query returned ${result.length} poems');
       
-      final result = await _poemRepository.getPoemsByBookId(bookId);
+      // Validate results
+      if (result.isEmpty) {
+        error.value = 'No poems found for this book';
+        return;
+      }
+
+      // Verify all poems belong to this book
+      if (result.any((poem) => poem.bookId != actualBookId)) {
+        debugPrint('⚠️ Found poems with mismatched book_id!');
+        error.value = 'Data integrity error';
+        return;
+      }
+
+      poems.assignAll(result);
+      debugPrint('✅ Successfully loaded ${result.length} poems');
+
+    } catch (e) {
+      debugPrint('❌ Error: $e');
+      error.value = 'Failed to load poems';
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<void> loadAllPoems() async {
+    try {
+      debugPrint('⏳ Loading all poems');
+      isLoading.value = true;
+      error.value = '';
+      poems.clear(); // Clear existing poems
+      
+      final result = await _poemRepository.getAllPoems();
       
       if (result.isEmpty) {
-        debugPrint('⚠️ No poems found for book_id: $bookId');
-        error.value = 'No poems found for this book';
+        error.value = 'No poems found';
       } else {
-        debugPrint('✅ Found ${result.length} poems');
-        // Log the first poem for debugging
-        if (result.isNotEmpty) {
-          debugPrint('First poem: ${result.first.toMap()}');
-        }
         poems.assignAll(result);
+        debugPrint('✅ Loaded ${result.length} total poems');
+        
+        // Debug info
+        final uniqueBookIds = result.map((p) => p.bookId).toSet();
+        debugPrint('📊 Poems from books: $uniqueBookIds');
+        debugPrint('First poem: ${result.first.title}');
+        debugPrint('Last poem: ${result.last.title}');
       }
-    } catch (e, stack) {
-      debugPrint('❌ Error: $e');
-      debugPrint('Stack trace: $stack');
-      error.value = 'Failed to load poems: ${e.toString()}';
+    } catch (e) {
+      debugPrint('❌ Error loading poems: $e');
+      error.value = 'Failed to load poems';
     } finally {
       isLoading.value = false;
     }
