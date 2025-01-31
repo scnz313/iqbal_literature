@@ -56,7 +56,6 @@ class PoemsScreen extends GetView<PoemController> {
           textDirection: TextDirection.rtl,
         ),
         actions: [
-          // Add debug button in debug mode
           if (kDebugMode)
             IconButton(
               icon: const Icon(Icons.bug_report),
@@ -142,37 +141,16 @@ class PoemCard extends StatelessWidget {
               ),
               const SizedBox(width: 16),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      poem.title,
-                      textAlign: TextAlign.right,
-                      style: const TextStyle(
-                        fontFamily: 'JameelNooriNastaleeq',
-                        fontSize: 20,
-                        height: 1.8,
-                        letterSpacing: 0.5,
-                      ),
-                      textDirection: TextDirection.rtl,
-                    ),
-                    if (poem.cleanData.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        poem.cleanData.split('\n').first,
-                        textAlign: TextAlign.right,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontFamily: 'JameelNooriNastaleeq',
-                          fontSize: 16,
-                          color: Theme.of(context).colorScheme.secondary,
-                          height: 1.5,
-                        ),
-                        textDirection: TextDirection.rtl,
-                      ),
-                    ],
-                  ],
+                child: Text(
+                  poem.title,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    fontFamily: 'JameelNooriNastaleeq',
+                    fontSize: 20,
+                    height: 1.8,
+                    letterSpacing: 0.5,
+                  ),
+                  textDirection: TextDirection.rtl,
                 ),
               ),
             ],
