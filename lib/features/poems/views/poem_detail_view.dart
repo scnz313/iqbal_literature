@@ -51,43 +51,115 @@ class PoemDetailView extends GetView<PoemController> {
             ],
           ),
           actions: [
-            // Font size controls
-            IconButton(
-              icon: const Icon(Icons.text_decrease),
-              onPressed: controller.decreaseFontSize,
-            ),
-            Obx(() => Text(
-              '${controller.fontSize.value.toInt()}',
-              style: const TextStyle(fontSize: 16),
-            )),
-            IconButton(
-              icon: const Icon(Icons.text_increase),
-              onPressed: controller.increaseFontSize,
-            ),
-            IconButton(
-              icon: Icon(
-                controller.isFavorite(poem) ? Icons.favorite : Icons.favorite_border,
-                color: controller.isFavorite(poem) ? Colors.red : null,
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-              onPressed: () => controller.toggleFavorite(poem),
-            ),
-            IconButton(
-              icon: const Icon(Icons.share),
-              onPressed: () => controller.sharePoem(poem),
-            ),
-            IconButton(
-              icon: const Icon(Icons.copy),
-              onPressed: () {
-                final textToCopy = '${poem.title}\n\n${poem.cleanData}';
-                Clipboard.setData(ClipboardData(text: textToCopy));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Poem copied to clipboard')),
-                );
+              position: PopupMenuPosition.under,
+              onSelected: (value) {
+                switch (value) {
+                  case 'share':
+                    controller.sharePoem(poem);
+                    break;
+                  case 'copy':
+                    final textToCopy = '${poem.title}\n\n${poem.cleanData}';
+                    Clipboard.setData(ClipboardData(text: textToCopy));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Poem copied to clipboard')),
+                    );
+                    break;
+                  case 'favorite':
+                    controller.toggleFavorite(poem);
+                    break;
+                }
               },
+              itemBuilder: (context) => [
+                _buildMenuItem(
+                  'share',
+                  Icons.share,
+                  'Share Poem',
+                  context,
+                ),
+                _buildMenuItem(
+                  'copy',
+                  Icons.copy,
+                  'Copy Text',
+                  context,
+                ),
+                const PopupMenuDivider(),
+                PopupMenuItem<String>(
+                  value: 'favorite',
+                  child: Obx(() => Row(
+                    children: [
+                      Icon(
+                        controller.isFavorite(poem) 
+                            ? Icons.favorite 
+                            : Icons.favorite_border,
+                        color: controller.isFavorite(poem) ? Colors.red : null,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        controller.isFavorite(poem) 
+                            ? 'Remove from Favorites' 
+                            : 'Add to Favorites',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
+                  )),
+                ),
+                const PopupMenuDivider(),
+                PopupMenuItem<String>(
+                  enabled: true,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Font Size',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          MaterialButton(
+                            minWidth: 0,
+                            padding: const EdgeInsets.all(8),
+                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            shape: const CircleBorder(),
+                            onPressed: controller.decreaseFontSize,
+                            child: const Icon(Icons.remove, size: 20),
+                          ),
+                          const SizedBox(width: 4),
+                          Obx(() => Text(
+                            '${controller.fontSize.value.toInt()}',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          )),
+                          const SizedBox(width: 4),
+                          MaterialButton(
+                            minWidth: 0,
+                            padding: const EdgeInsets.all(8),
+                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            shape: const CircleBorder(),
+                            onPressed: controller.increaseFontSize,
+                            child: const Icon(Icons.add, size: 20),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ],
         ),
-        body: _buildPoemContent(context, poem),
+        body: SafeArea(
+          child: _buildPoemContent(context, poem),
+        ),
       );
     } catch (e) {
       debugPrint('Error loading poem: $e');
@@ -98,34 +170,29 @@ class PoemDetailView extends GetView<PoemController> {
   }
 
   Widget _buildPoemContent(BuildContext context, Poem poem) {
-    return Center(  // Center the content
-      child: Container(
-        constraints: const BoxConstraints(
-          maxWidth: 600,  // Limit maximum width
-        ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 24.0,
-          vertical: 16.0,
-        ),
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 600),
         child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 24.0,
+            vertical: 16.0,
+          ),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,  // Stretch content
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Title with dynamic font size
               Obx(() => SelectableText(
                 poem.title,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontFamily: 'JameelNooriNastaleeq',
-                  fontSize: controller.fontSize.value + 4, // Slightly larger than content
+                  fontSize: controller.fontSize.value + 4,
                   height: 2.0,
                   fontWeight: FontWeight.bold,
                 ),
                 textDirection: TextDirection.rtl,
               )),
               const SizedBox(height: 24),
-              
-              // Content with dynamic font size
               Obx(() => SelectableText(
                 poem.cleanData,
                 textAlign: TextAlign.center,
@@ -136,30 +203,6 @@ class PoemDetailView extends GetView<PoemController> {
                   letterSpacing: 0.5,
                 ),
                 textDirection: TextDirection.rtl,
-                contextMenuBuilder: (context, editableTextState) {
-                  return AdaptiveTextSelectionToolbar(
-                    anchors: editableTextState.contextMenuAnchors,
-                    children: [
-                      // Copy button
-                      InkWell(
-                        onTap: () {
-                          final data = editableTextState.textEditingValue.text;
-                          Clipboard.setData(ClipboardData(text: data));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Text copied!')),
-                          );
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          child: const Text('Copy'),
-                        ),
-                      ),
-                    ],
-                  );
-                },
               )),
             ],
           ),
@@ -177,6 +220,27 @@ class PoemDetailView extends GetView<PoemController> {
 
     // Join with proper spacing
     return lines.join('\n\n');
+  }
+
+  PopupMenuItem<String> _buildMenuItem(
+    String value,
+    IconData icon,
+    String text,
+    BuildContext context,
+  ) {
+    return PopupMenuItem<String>(
+      value: value,
+      child: Row(
+        children: [
+          Icon(icon, size: 20),
+          const SizedBox(width: 12),
+          Text(
+            text,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ],
+      ),
+    );
   }
 }
 
