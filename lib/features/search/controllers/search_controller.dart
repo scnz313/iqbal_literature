@@ -9,6 +9,7 @@ class SearchController extends GetxController {
   final searchResults = <SearchResult>[].obs;
   final isLoading = false.obs;
   final searchController = TextEditingController();
+  final urduSearchController = TextEditingController();
   Timer? _debounceTimer;
 
   SearchController(this._searchService);
@@ -16,17 +17,27 @@ class SearchController extends GetxController {
   @override
   void onClose() {
     searchController.dispose();
+    urduSearchController.dispose();
     _debounceTimer?.cancel();
     super.onClose();
   }
 
   void clearSearch() {
     searchController.clear();
+    urduSearchController.clear();
     searchResults.clear();
   }
 
   void onSearchChanged(String query) {
     if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
+    
+    // Sync both text fields
+    final isUrduQuery = query.contains(RegExp(r'[\u0600-\u06FF]'));
+    if (isUrduQuery) {
+      if (searchController.text.isNotEmpty) searchController.clear();
+    } else {
+      if (urduSearchController.text.isNotEmpty) urduSearchController.clear();
+    }
     
     if (query.isEmpty) {
       searchResults.clear();

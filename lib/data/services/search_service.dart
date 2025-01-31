@@ -18,17 +18,14 @@ class SearchService {
       final results = await Future.wait([
         _searchBooks(normalizedQuery, limit: limit),
         _searchPoems(normalizedQuery, limit: limit),
-        _searchLines(normalizedQuery, limit: limit),
       ]);
 
       debugPrint('📚 Found ${results[0].length} books');
       debugPrint('📝 Found ${results[1].length} poems');
-      debugPrint('📄 Found ${results[2].length} lines');
 
       final combinedResults = [
         ...results[0],
         ...results[1],
-        ...results[2],
       ];
 
       debugPrint('📊 Total results: ${combinedResults.length}');
@@ -40,22 +37,39 @@ class SearchService {
   }
 
   String _normalizeQuery(String query) {
-    return query.trim();
+    final normalized = query.trim();
+    
+    // Don't lowercase Urdu text
+    if (_isUrduText(normalized)) {
+      return normalized;
+    }
+    
+    return normalized.toLowerCase();
+  }
+
+  bool _isUrduText(String text) {
+    return text.contains(RegExp(r'[\u0600-\u06FF]'));
   }
 
   Future<List<SearchResult>> _searchBooks(String query, {int? limit}) async {
     try {
+      debugPrint('📚 Starting book search for query: $query');
+      
+      // Get all books and filter in memory
       final snapshot = await _firestore
           .collection('books')
-          .where('name', isGreaterThanOrEqualTo: query)
-          .where('name', isLessThan: query + 'z')
-          .limit(limit ?? 10)
           .get();
 
-      debugPrint('📚 Searching books: ${snapshot.docs.length} results');
-
-      return snapshot.docs.map((doc) {
+      final results = snapshot.docs.where((doc) {
         final data = doc.data();
+        final name = (data['name'] ?? '').toString().toLowerCase();
+        final description = (data['description'] ?? '').toString().toLowerCase();
+        final searchText = query.toLowerCase();
+        
+        return name.contains(searchText) || description.contains(searchText);
+      }).map((doc) {
+        final data = doc.data();
+        debugPrint('📖 Book found: ${data['name']}');
         return SearchResult(
           id: doc.id,
           title: data['name'] ?? '',
@@ -65,6 +79,9 @@ class SearchService {
           highlight: '',
         );
       }).toList();
+
+      debugPrint('📚 Found ${results.length} books');
+      return results.take(limit ?? 10).toList();
     } catch (e) {
       debugPrint('❌ Book search error: $e');
       return [];
@@ -73,86 +90,89 @@ class SearchService {
 
   Future<List<SearchResult>> _searchPoems(String query, {int? limit}) async {
     try {
-      // Search in both title and content
-      final titleSnapshot = await _firestore
+      debugPrint('📝 Starting poem search for query: $query');
+      
+      // Get all poems and filter in memory
+      final snapshot = await _firestore
           .collection('poems')
-          .where('title', isGreaterThanOrEqualTo: query)
-          .where('title', isLessThan: query + 'z')
-          .limit(limit ?? 10)
           .get();
 
-      final contentSnapshot = await _firestore
-          .collection('poems')
-          .where('data', isGreaterThanOrEqualTo: query)
-          .where('data', isLessThan: query + 'z')
-          .limit(limit ?? 10)
-          .get();
-
-      debugPrint('📝 Searching poems: ${titleSnapshot.docs.length + contentSnapshot.docs.length} results');
-
-      // Combine results
       final results = <SearchResult>[];
       
-      // Add title matches
-      results.addAll(titleSnapshot.docs.map((doc) {
+      for (var doc in snapshot.docs) {
         final data = doc.data();
-        return SearchResult(
-          id: doc.id,
-          title: data['title'] ?? '',
-          subtitle: _extractPreview(data['data'] ?? ''),
-          type: SearchResultType.poem,
-          relevance: 1.0,
-          highlight: '',
-        );
-      }));
+        final title = (data['title'] ?? '').toString().toLowerCase();
+        final content = (data['data'] ?? '').toString().toLowerCase();
+        final searchText = query.toLowerCase();
 
-      // Add content matches
-      results.addAll(contentSnapshot.docs.map((doc) {
-        final data = doc.data();
-        return SearchResult(
-          id: doc.id,
-          title: data['title'] ?? '',
-          subtitle: _extractPreview(data['data'] ?? '', query),
-          type: SearchResultType.poem,
-          relevance: 0.8,
-          highlight: '',
-        );
-      }));
+        // Check title match
+        if (title.contains(searchText)) {
+          debugPrint('📜 Poem found by title: ${data['title']}');
+          results.add(SearchResult(
+            id: doc.id,
+            title: data['title'] ?? '',
+            subtitle: _extractPreview(data['data'] ?? ''),
+            type: SearchResultType.poem,
+            relevance: 1.0,
+            highlight: '',
+          ));
+        }
+        // Check content match
+        else if (content.contains(searchText)) {
+          final matchingLine = _findMatchingLine(data['data'] ?? '', query);
+          if (matchingLine.isNotEmpty) {
+            debugPrint('📜 Poem found by content: ${data['title']} - Line: $matchingLine');
+            results.add(SearchResult(
+              id: doc.id,
+              title: data['title'] ?? '',
+              subtitle: matchingLine,
+              type: SearchResultType.line,
+              relevance: 0.8,
+              highlight: '',
+            ));
+          }
+        }
+      }
 
-      return results;
+      return results.take(limit ?? 10).toList();
     } catch (e) {
       debugPrint('❌ Poem search error: $e');
       return [];
     }
   }
 
-  Future<List<SearchResult>> _searchLines(String query, {int? limit}) async {
-    try {
-      final snapshot = await _firestore
-          .collection('poems')
-          .where('data', isGreaterThanOrEqualTo: query)
-          .where('data', isLessThan: query + 'z')
-          .limit(limit ?? 10)
-          .get();
-
-      debugPrint('📄 Searching lines: ${snapshot.docs.length} results');
-
-      return snapshot.docs.map((doc) {
-        final data = doc.data();
-        final matchingLine = _findMatchingLine(data['data'] ?? '', query);
-        return SearchResult(
-          id: doc.id,
-          title: matchingLine,
-          subtitle: data['title'] ?? '',
-          type: SearchResultType.line,
-          relevance: 0.5,
-          highlight: '',
-        );
-      }).toList();
-    } catch (e) {
-      debugPrint('❌ Line search error: $e');
-      return [];
+  String _findMatchingLine(String text, String query) {
+    final lines = text.split('\n');
+    
+    for (var line in lines) {
+      if (line.toLowerCase().contains(query.toLowerCase())) {
+        debugPrint('📌 Found matching line: $line');
+        return line.trim();
+      }
     }
+    return '';
+  }
+
+  List<String> _createSearchTerms(String query) {
+    final normalized = _normalizeQuery(query);
+    final terms = normalized.split(' ')
+      .where((term) => term.isNotEmpty)
+      .map((term) => term.toLowerCase())
+      .toList();
+    
+    // Add the full query as a term
+    terms.add(normalized.toLowerCase());
+    
+    // For Urdu text, add variations
+    if (query.contains(RegExp(r'[\u0600-\u06FF]'))) {
+      terms.addAll([
+        normalized.replaceAll('ی', 'ي'),
+        normalized.replaceAll('ک', 'ك'),
+        normalized.replaceAll('ی', 'ي').replaceAll('ک', 'ك'),
+      ]);
+    }
+    
+    return terms;
   }
 
   String _extractPreview(String text, [String? query]) {
@@ -165,15 +185,5 @@ class SearchService {
       }
     }
     return text.length > 100 ? '${text.substring(0, 100)}...' : text;
-  }
-
-  String _findMatchingLine(String text, String query) {
-    final lines = text.split('\n');
-    for (var line in lines) {
-      if (line.toLowerCase().contains(query.toLowerCase())) {
-        return line.trim();
-      }
-    }
-    return '';
   }
 }
