@@ -6,12 +6,15 @@ import '../../../data/services/analytics_service.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../config/providers/theme_provider.dart';
 import '../../../config/providers/locale_provider.dart';
+import '../../../core/localization/language_constants.dart';
+import '../../../config/providers/font_scale_provider.dart';
 
 class SettingsController extends GetxController {
   final StorageService _storageService;
   final AnalyticsService _analyticsService;
   late final ThemeProvider _themeProvider;
   late final LocaleProvider _localeProvider;
+  late final FontScaleProvider _fontScaleProvider;
 
   SettingsController(
     this._storageService,
@@ -19,15 +22,15 @@ class SettingsController extends GetxController {
   ) {
     _themeProvider = Get.find<ThemeProvider>();
     _localeProvider = Get.find<LocaleProvider>();
+    _fontScaleProvider = Get.find<FontScaleProvider>();
   }
 
   final RxString currentLanguage = 'en'.obs;
   final RxString currentTheme = 'system'.obs;
   final RxString cacheSize = '0.00'.obs;
   String appVersion = '';
-  final fontScale = 1.0.obs;
   final isNightModeScheduled = false.obs;
-  final selectedLanguage = 'en'.obs;
+  final RxDouble fontScale = 1.0.obs;  // Change to RxDouble
 
   @override
   void onInit() {
@@ -66,7 +69,9 @@ class SettingsController extends GetxController {
     try {
       currentLanguage.value = language;
       await _storageService.write('language', language);
-      _localeProvider.changeLanguage(language);
+      final locale = LanguageConstants.getLocaleFromLanguageCode(language);
+      _localeProvider.setLocale(locale);
+      Get.updateLocale(locale);
       
       _analyticsService.logEvent(
         name: 'change_language',
@@ -74,6 +79,11 @@ class SettingsController extends GetxController {
       );
     } catch (e) {
       debugPrint('Error changing language: $e');
+      Get.snackbar(
+        'error'.tr,
+        'Failed to change language',
+        snackPosition: SnackPosition.BOTTOM,
+      );
     }
   }
 
@@ -169,16 +179,24 @@ class SettingsController extends GetxController {
     );
   }
 
-  void setFontScale(double scale) {
-    fontScale.value = scale;
-    // ...store in SharedPreferences...
+  Future<void> setFontScale(double scale) async {
+    try {
+      await FontScaleProvider.to.setFontScale(scale);
+      _analyticsService.logEvent(
+        name: 'change_font_size',
+        parameters: {'scale': scale},
+      );
+    } catch (e) {
+      debugPrint('Error saving font scale: $e');
+      Get.snackbar(
+        'error'.tr,
+        'Failed to update font size',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
   }
 
-  void toggleLanguage(String langCode) {
-    selectedLanguage.value = langCode;
-    Get.updateLocale(Locale(langCode));
-    // ...store in SharedPreferences...
-  }
+  double get currentFontScale => FontScaleProvider.to.fontScale.value;
 
   void enableNightModeSchedule(bool value) {
     isNightModeScheduled.value = value;

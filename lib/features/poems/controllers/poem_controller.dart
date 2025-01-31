@@ -18,11 +18,15 @@ class PoemController extends GetxController {
   final RxString error = ''.obs;
   final RxSet<String> favorites = <String>{}.obs;
   final RxString viewType = ''.obs;
+  final RxDouble fontSize = 20.0.obs;  // Default font size
+  static const double minFontSize = 16.0;
+  static const double maxFontSize = 36.0;
 
   @override
   void onInit() {
     super.onInit();
     _loadFavorites();
+    _loadFontSize();  // Add this line
     
     debugPrint('=== POEM CONTROLLER INIT ===');
     final args = Get.arguments;
@@ -62,6 +66,19 @@ class PoemController extends GetxController {
   Future<void> _saveFavorites() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList('favorites', favorites.toList());
+  }
+
+  Future<void> _loadFontSize() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedFontSize = prefs.getDouble('font_size');
+    if (savedFontSize != null) {
+      fontSize.value = savedFontSize.clamp(minFontSize, maxFontSize);
+    }
+  }
+
+  Future<void> _saveFontSize() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('font_size', fontSize.value);
   }
 
   bool isFavorite(Poem poem) => favorites.contains(poem.id);
@@ -179,6 +196,20 @@ class PoemController extends GetxController {
     if (args is Map<String, dynamic> && args.containsKey('book')) {
       final book = args['book'];
       await loadPoemsByBookId(book.id);
+    }
+  }
+
+  void increaseFontSize() {
+    if (fontSize.value < maxFontSize) {
+      fontSize.value += 2.0;
+      _saveFontSize();
+    }
+  }
+
+  void decreaseFontSize() {
+    if (fontSize.value > minFontSize) {
+      fontSize.value -= 2.0;
+      _saveFontSize();
     }
   }
 }

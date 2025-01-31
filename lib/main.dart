@@ -1,63 +1,41 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:get/get.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'config/di/dependency_injection.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'core/services/init_service.dart';
+import 'config/routes/app_pages.dart';  // Update this import
 import 'firebase_options.dart';
-import 'config/routes/app_pages.dart';
-import 'core/themes/app_theme.dart';
+import 'features/presentation/pages/home/home_page.dart';
 import 'config/providers/theme_provider.dart';
-import 'config/providers/locale_provider.dart';
 
 Future<void> main() async {
-  try {
-    WidgetsFlutterBinding.ensureInitialized();
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-    
-    // Initialize all dependencies through the DI class
-    await DependencyInjection.init();
-
-    runApp(const IqbalLiteratureApp());
-  } catch (e, stack) {
-    debugPrint('Initialization error: $e');
-    debugPrint(stack.toString());
-    rethrow;
-  }
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize Firebase first
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  
+  // Then initialize app services
+  await InitService.init();
+  
+  runApp(const MyApp());
 }
 
-class IqbalLiteratureApp extends StatelessWidget {
-  const IqbalLiteratureApp({super.key});
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ScreenUtilInit(
-      designSize: const Size(375, 812),
-      minTextAdapt: true,
-      splitScreenMode: true,
-      builder: (context, child) {
-        return GetMaterialApp(
-        title: 'Iqbal Literature',
-          debugShowCheckedModeBanner: false,
-          theme: AppTheme.lightTheme,
-          darkTheme: AppTheme.darkTheme,
-          themeMode: Get.find<ThemeProvider>().themeMode,
-          initialRoute: Routes.home,
-          getPages: AppPages.routes,
-          defaultTransition: Transition.fadeIn,
-          transitionDuration: const Duration(milliseconds: 200),
-          navigatorObservers: [
-            FirebaseAnalyticsObserver(analytics: FirebaseAnalytics.instance),
-          ],
-          onUnknownRoute: (settings) => MaterialPageRoute(
-            builder: (context) => const NotFoundScreen(),
-          ),
-          locale: Get.find<LocaleProvider>().locale,
-          fallbackLocale: const Locale('en', 'US'),
-        );
-      },
+    final themeProvider = Get.find<ThemeProvider>();
+    
+    return GetMaterialApp(
+      title: 'Iqbal Literature',
+      debugShowCheckedModeBanner: false,
+      theme: themeProvider.lightTheme,
+      darkTheme: themeProvider.darkTheme,
+      themeMode: themeProvider.themeMode,
+      initialRoute: Routes.home,
+      getPages: AppPages.routes,
     );
   }
 }

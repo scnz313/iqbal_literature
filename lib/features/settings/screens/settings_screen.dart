@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/settings_controller.dart';
+import '../../../core/controllers/font_controller.dart';
 import '../../../core/widgets/custom_app_bar.dart';
+import '../widgets/language_selector.dart';
 
 class SettingsScreen extends GetView<SettingsController> {
   const SettingsScreen({super.key});
@@ -15,14 +17,16 @@ class SettingsScreen extends GetView<SettingsController> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Language Toggle
-          Obx(() => SwitchListTile(
-                title: const Text('Urdu'),
-                value: controller.selectedLanguage.value == 'ur',
-                onChanged: (bool isUrdu) {
-                  controller.toggleLanguage(isUrdu ? 'ur' : 'en');
-                },
-              )),
+          // Language Section
+          _buildSection(
+            context,
+            title: 'language'.tr,
+            icon: Icons.language,
+            child: Obx(() => LanguageSelector(
+                  selectedLanguage: controller.currentLanguage.value,
+                  onLanguageChanged: controller.changeLanguage,
+                )),
+          ),
 
           const SizedBox(height: 16),
 
@@ -38,19 +42,6 @@ class SettingsScreen extends GetView<SettingsController> {
                 _buildThemeOption(context, 'Dark', 'dark'),
               ],
             )),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Font Resize
-          ListTile(
-            title: const Text('Font Size'),
-            subtitle: Obx(() => Slider(
-                  value: controller.fontScale.value,
-                  min: 0.8,
-                  max: 1.5,
-                  onChanged: (val) => controller.setFontScale(val),
-                )),
           ),
 
           const SizedBox(height: 16),
@@ -115,15 +106,6 @@ class SettingsScreen extends GetView<SettingsController> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildLanguageOption(BuildContext context, String label, String value) {
-    return RadioListTile<String>(
-      title: Text(label),
-      value: value,
-      groupValue: controller.currentLanguage.value,
-      onChanged: (value) => controller.changeLanguage(value!),
     );
   }
 

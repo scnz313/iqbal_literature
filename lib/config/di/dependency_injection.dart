@@ -13,6 +13,7 @@ import '../../data/repositories/user_repository.dart';
 // Services
 import '../../data/services/storage_service.dart';
 import '../../data/services/analytics_service.dart';
+import '../../data/services/search_service.dart';
 
 // Providers
 import '../providers/theme_provider.dart';
@@ -89,8 +90,15 @@ class DependencyInjection {
         fenix: true,
       );
 
+      // Register SearchService before SearchController
+      Get.lazyPut<SearchService>(
+        () => SearchService(Get.find<FirebaseFirestore>()),
+        fenix: true,
+      );
+
+      // Update SearchController registration
       Get.lazyPut<app.SearchController>(
-        () => app.SearchController(bookRepo, poemRepo),
+        () => app.SearchController(Get.find<SearchService>()),
         fenix: true,
       );
 

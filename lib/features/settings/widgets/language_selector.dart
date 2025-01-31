@@ -1,12 +1,5 @@
 import 'package:flutter/material.dart';
-
-class LanguageConstants {
-  static const Map<String, String> languageNames = {
-    'en': 'English',
-    'es': 'Spanish',
-    'fr': 'French',
-  };
-}
+import '../../../core/localization/language_constants.dart';
 
 class LanguageSelector extends StatelessWidget {
   final String selectedLanguage;
@@ -21,19 +14,24 @@ class LanguageSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      children: LanguageConstants.languageNames.entries.map((entry) {
-        return RadioListTile<String>(
-          title: Text(entry.value),
-          value: entry.key,
+      children: [
+        RadioListTile<String>(
+          title: const Text('English'),
+          value: 'en',
           groupValue: selectedLanguage,
           onChanged: (value) {
-            if (value != null) {
-              onLanguageChanged(value);
-            }
+            if (value != null) onLanguageChanged(value);
           },
-          contentPadding: EdgeInsets.zero,
-        );
-      }).toList(),
+        ),
+        RadioListTile<String>(
+          title: const Text('اردو'),
+          value: 'ur', 
+          groupValue: selectedLanguage,
+          onChanged: (value) {
+            if (value != null) onLanguageChanged(value);
+          },
+        ),
+      ],
     );
   }
 }

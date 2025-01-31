@@ -48,6 +48,22 @@ class PoemDetailView extends GetView<PoemController> {
           ],
         ),
         actions: [
+          // Font size controls
+          IconButton(
+            icon: const Icon(Icons.text_decrease),
+            onPressed: controller.decreaseFontSize,
+            tooltip: 'Decrease font size',
+          ),
+          Obx(() => Text(
+            '${controller.fontSize.value.toInt()}',
+            style: const TextStyle(fontSize: 16),
+          )),
+          IconButton(
+            icon: const Icon(Icons.text_increase),
+            onPressed: controller.increaseFontSize,
+            tooltip: 'Increase font size',
+          ),
+          // Existing buttons
           Obx(() => IconButton(
             icon: Icon(
               controller.isFavorite(poem) ? Icons.favorite : Icons.favorite_border,
@@ -89,28 +105,28 @@ class PoemDetailView extends GetView<PoemController> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,  // Stretch content
             children: [
-              // Title
-              SelectableText(  // Changed from Text to SelectableText
+              // Title with dynamic font size
+              Obx(() => SelectableText(
                 poem.title,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'JameelNooriNastaleeq',
-                  fontSize: 24,
+                  fontSize: controller.fontSize.value + 4, // Slightly larger than content
                   height: 2.0,
                   fontWeight: FontWeight.bold,
                 ),
                 textDirection: TextDirection.rtl,
-              ),
+              )),
               const SizedBox(height: 24),
               
-              // Poem content with selection enabled
-              SelectableText(  // Changed from Text to SelectableText
+              // Content with dynamic font size
+              Obx(() => SelectableText(
                 poem.cleanData,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'JameelNooriNastaleeq',
-                  fontSize: 20,
-                  height: 2.5,  // Increase line height
+                  fontSize: controller.fontSize.value,
+                  height: 2.5,
                   letterSpacing: 0.5,
                 ),
                 textDirection: TextDirection.rtl,
@@ -138,7 +154,7 @@ class PoemDetailView extends GetView<PoemController> {
                     ],
                   );
                 },
-              ),
+              )),
             ],
           ),
         ),
