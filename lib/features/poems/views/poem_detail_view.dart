@@ -9,86 +9,92 @@ class PoemDetailView extends GetView<PoemController> {
 
   @override
   Widget build(BuildContext context) {
-    final poem = Get.arguments as Poem?;
+    final args = Get.arguments;
+    late final Poem poem;
     
-    if (poem == null) {
-      return const Scaffold(
-        body: Center(child: Text('Poem not found')),
-      );
-    }
+    try {
+      if (args is Poem) {
+        poem = args;
+      } else if (args is Map<String, dynamic>) {
+        poem = Poem.fromSearchResult(args);
+      } else {
+        return const Scaffold(
+          body: Center(child: Text('Invalid poem data')),
+        );
+      }
 
-    // Split poem into stanzas (double newlines indicate stanza breaks)
-    final stanzas = poem.data.split('\n\n');
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.auto_stories, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    poem.title,
-                    style: const TextStyle(
-                      fontFamily: 'JameelNooriNastaleeq',
-                      fontSize: 20,
+      return Scaffold(
+        appBar: AppBar(
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.auto_stories, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      poem.title,
+                      style: const TextStyle(
+                        fontFamily: 'JameelNooriNastaleeq',
+                        fontSize: 20,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-              ],
+                ],
+              ),
+              Text(
+                'From: ${controller.currentBookName}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+          actions: [
+            // Font size controls
+            IconButton(
+              icon: const Icon(Icons.text_decrease),
+              onPressed: controller.decreaseFontSize,
             ),
-            Text(
-              'From: ${controller.currentBookName}',
-              style: Theme.of(context).textTheme.bodySmall,
+            Obx(() => Text(
+              '${controller.fontSize.value.toInt()}',
+              style: const TextStyle(fontSize: 16),
+            )),
+            IconButton(
+              icon: const Icon(Icons.text_increase),
+              onPressed: controller.increaseFontSize,
+            ),
+            IconButton(
+              icon: Icon(
+                controller.isFavorite(poem) ? Icons.favorite : Icons.favorite_border,
+                color: controller.isFavorite(poem) ? Colors.red : null,
+              ),
+              onPressed: () => controller.toggleFavorite(poem),
+            ),
+            IconButton(
+              icon: const Icon(Icons.share),
+              onPressed: () => controller.sharePoem(poem),
+            ),
+            IconButton(
+              icon: const Icon(Icons.copy),
+              onPressed: () {
+                final textToCopy = '${poem.title}\n\n${poem.cleanData}';
+                Clipboard.setData(ClipboardData(text: textToCopy));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Poem copied to clipboard')),
+                );
+              },
             ),
           ],
         ),
-        actions: [
-          // Font size controls
-          IconButton(
-            icon: const Icon(Icons.text_decrease),
-            onPressed: controller.decreaseFontSize,
-            tooltip: 'Decrease font size',
-          ),
-          Obx(() => Text(
-            '${controller.fontSize.value.toInt()}',
-            style: const TextStyle(fontSize: 16),
-          )),
-          IconButton(
-            icon: const Icon(Icons.text_increase),
-            onPressed: controller.increaseFontSize,
-            tooltip: 'Increase font size',
-          ),
-          // Existing buttons
-          Obx(() => IconButton(
-            icon: Icon(
-              controller.isFavorite(poem) ? Icons.favorite : Icons.favorite_border,
-              color: controller.isFavorite(poem) ? Colors.red : null,
-            ),
-            onPressed: () => controller.toggleFavorite(poem),
-          )),
-          IconButton(
-            icon: const Icon(Icons.share),
-            onPressed: () => controller.sharePoem(poem),
-          ),
-          IconButton(
-            icon: const Icon(Icons.copy),
-            onPressed: () {
-              final textToCopy = '${poem.title}\n\n${poem.cleanData}';
-              Clipboard.setData(ClipboardData(text: textToCopy));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Poem copied to clipboard')),
-              );
-            },
-          ),
-        ],
-      ),
-      body: _buildPoemContent(context, poem),
-    );
+        body: _buildPoemContent(context, poem),
+      );
+    } catch (e) {
+      debugPrint('Error loading poem: $e');
+      return const Scaffold(
+        body: Center(child: Text('Error loading poem')),
+      );
+    }
   }
 
   Widget _buildPoemContent(BuildContext context, Poem poem) {

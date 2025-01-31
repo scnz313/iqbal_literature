@@ -56,6 +56,16 @@ class Poem extends Equatable {
     );
   }
 
+  factory Poem.fromSearchResult(Map<String, dynamic> args) {
+    return Poem(
+      id: args['poem_id'] ?? '0',
+      numericId: int.tryParse(args['poem_id'] ?? '0') ?? 0,
+      title: args['title'] ?? '',
+      data: args['content'] ?? '',
+      bookId: 0,
+    );
+  }
+
   Map<String, dynamic> toMap() {
     return {
       '_id': numericId,

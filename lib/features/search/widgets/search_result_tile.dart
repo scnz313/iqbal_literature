@@ -44,10 +44,13 @@ class SearchResultTile extends StatelessWidget {
             });
             break;
           case SearchResultType.poem:
-            Get.toNamed('/poem-detail', arguments: result);
-            break;
           case SearchResultType.line:
-            Get.toNamed('/poem-detail', arguments: result);
+            Get.toNamed('/poem-detail', arguments: {
+              'poem_id': result.id,
+              'title': result.title,
+              'content': result.subtitle,
+              'type': result.type.toString(),
+            });
             break;
         }
       },
