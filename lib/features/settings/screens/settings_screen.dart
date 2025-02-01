@@ -4,7 +4,6 @@ import '../controllers/settings_controller.dart';
 import '../../../core/controllers/font_controller.dart';
 import '../../../core/widgets/custom_app_bar.dart';
 import '../widgets/language_selector.dart';
-import 'about_screen.dart';
 
 class SettingsScreen extends GetView<SettingsController> {
   const SettingsScreen({super.key});
@@ -112,30 +111,114 @@ class SettingsScreen extends GetView<SettingsController> {
                 ),
                 const SizedBox(height: 8),
                 TextButton(
-                  onPressed: controller.showAbout,
+                  onPressed: () => _showAboutDialog(context),
                   child: Text('about_app'.tr),
                 ),
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
 
-          const Divider(height: 32),
+  void _showAboutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('About'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Iqbal's Quote
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text(
+                  'Khudi ko kar buland itna ke har taqdir se pehle,\nKhuda bande se khud pooche, bata teri raza kya hai?',
+                  style: TextStyle(
+                    fontFamily: 'JameelNooriNastaleeq',
+                    fontSize: 20,
+                    height: 1.8,
+                  ),
+                  textAlign: TextAlign.center,
+                  textDirection: TextDirection.rtl,
+                ),
+              ),
+              const SizedBox(height: 24),
 
-          ListTile(
-            leading: const Icon(Icons.info_outline),
-            title: const Text('About App'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Get.to(() => const AboutScreen()),
+              // About Iqbal Section
+              Text('About Allama Iqbal & This App', 
+                  style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 12),
+              const Text(
+                'Allama Iqbal, the visionary poet-philosopher of the East, dedicated his life to reawakening the Muslim Ummah through spiritual revival and intellectual empowerment. His philosophy of Khudi (self-realization) ignited a transformative movement urging Muslims to embrace self-awareness, unity, and progress through knowledge and faith. His timeless verses not only inspired the creation of Pakistan but continue to guide millions in reclaiming their identity and purpose.\n\nThis app is a digital tribute to Iqbal\'s wisdom, designed to make his revolutionary teachings accessible to modern seekers. Here, you\'ll explore his poetry, reflect on his philosophical insights, and discover how to embody his ideals in today\'s world.',
+              ),
+              const Divider(height: 32),
+
+              // Developer Section
+              Text('About the Developer', 
+                  style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 12),
+              const ListTile(
+                leading: CircleAvatar(child: Icon(Icons.person)),
+                title: Text('👨💻 Hashim Hameem'),
+                subtitle: Text('A passionate full-stack & Android developer from Kashmir, merging technology with tradition to preserve cultural legacies.'),
+              ),
+              const Divider(),
+              Text('🛠 Languages & Tools:', 
+                  style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  'Android', 'NextJS', 'JavaScript', 'Java', 'Python', 'PHP',
+                  'HTML5', 'Node.js', 'Express', 'Flask', 'Bootstrap',
+                  'MSSQL', 'MySQL', 'SQLite'
+                ].map((skill) => Chip(label: Text(skill))).toList(),
+              ),
+              const Divider(),
+              Text('📫 Let\'s Connect:', 
+                  style: Theme.of(context).textTheme.titleSmall),
+              const ListTile(
+                leading: Icon(Icons.email),
+                title: Text('✉️ Email'),
+                subtitle: Text('hashimdar141@yahoo.com'),
+              ),
+              const ListTile(
+                leading: Icon(Icons.link),
+                title: Text('🐦 Twitter'),
+                subtitle: Text('@HashimScnz'),
+              ),
+              const ListTile(
+                leading: Icon(Icons.work),
+                title: Text('💼 LinkedIn'),
+                subtitle: Text('Hashim Hameem'),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Text(
+                  '"This app is my humble effort to honor Iqbal\'s legacy – may his words continue to light our path."',
+                  style: TextStyle(
+                    fontStyle: FontStyle.italic,
+                    fontSize: 14,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
           ),
-
-          // Version number
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              'Version 1.0.0',
-              style: Theme.of(context).textTheme.bodySmall,
-              textAlign: TextAlign.center,
-            ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
           ),
         ],
       ),
@@ -151,7 +234,7 @@ class SettingsScreen extends GetView<SettingsController> {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
+        child: Column( 
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
