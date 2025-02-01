@@ -9,6 +9,9 @@ import '../../features/settings/screens/settings_screen.dart';
 import '../../features/search/bindings/search_binding.dart';
 import '../../features/favorites/screens/favorites_screen.dart';
 import '../../features/favorites/bindings/favorites_binding.dart';
+import '../../features/poems/controllers/poem_controller.dart';
+import '../../data/repositories/poem_repository.dart';
+import '../../data/services/analytics_service.dart';
 
 class Routes {
   static const String home = '/';
@@ -39,7 +42,12 @@ class AppPages {
     GetPage(
       name: Routes.poems,
       page: () => const PoemsScreen(),
-      binding: PoemBinding(),
+      binding: BindingsBuilder(() {
+        Get.put(PoemController(
+          Get.find(),  // PoemRepository
+          Get.find(),  // AnalyticsService
+        ));
+      }),
       transition: Transition.fadeIn,
     ),
     GetPage(

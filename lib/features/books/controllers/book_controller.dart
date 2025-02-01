@@ -5,6 +5,8 @@ import '../../../config/routes/app_pages.dart';  // Add this import
 import '../../../data/models/book/book.dart';
 import '../../../data/repositories/book_repository.dart';
 import '../../../data/services/analytics_service.dart';
+import '../../poems/screens/poems_screen.dart';
+import '../../poems/controllers/poem_controller.dart';
 
 class BookController extends GetxController {
   final BookRepository _bookRepository;
@@ -90,12 +92,23 @@ class BookController extends GetxController {
     }
 
     final args = {
-      'book_id': book.id,  // Must be int
+      'book_id': book.id,
       'book_name': book.name,
-      'view_type': 'book_specific'  // Must match exactly
+      'view_type': 'book_specific'
     };
     
     debugPrint('📤 Navigation arguments: $args');
-    Get.toNamed(Routes.bookPoems, arguments: args);
+    
+    Get.to(
+      () => const PoemsScreen(),
+      arguments: args,
+      binding: BindingsBuilder(() {
+        Get.put(PoemController(
+          Get.find(),  // PoemRepository
+          Get.find(),  // AnalyticsService
+        ));
+      }),
+    );
   }
+
 }

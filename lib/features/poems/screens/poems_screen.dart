@@ -4,12 +4,44 @@ import 'package:get/get.dart';
 import '../controllers/poem_controller.dart';
 import '../../../data/models/poem/poem.dart';
 
-class PoemsScreen extends GetView<PoemController> {
+class PoemsScreen extends StatefulWidget {
   const PoemsScreen({super.key});
 
+  @override
+  State<PoemsScreen> createState() => _PoemsScreenState();
+}
+
+class _PoemsScreenState extends State<PoemsScreen> {
+  final PoemController controller = Get.find<PoemController>();
+
+  @override
+  void initState() {
+    super.initState();
+    final args = Get.arguments as Map<String, dynamic>?;
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (args == null) {
+        debugPrint('📚 Loading all poems (direct access)');
+        controller.loadAllPoems();
+      } else {
+        final bookId = args['book_id'];
+        final viewType = args['view_type'];
+        
+        if (bookId != null && viewType == 'book_specific') {
+          debugPrint('📚 Loading poems for book: $bookId');
+          controller.loadPoemsByBookId(bookId);
+        } else {
+          debugPrint('📚 Loading all poems (fallback)');
+          controller.loadAllPoems();
+        }
+      }
+    });
+  }
+
   Widget _buildErrorWidget(BuildContext context, String error) {
-    final args = Get.arguments;
+    final args = Get.arguments as Map<String, dynamic>?;
     final bookId = args?['book_id'];
+    debugPrint('Error widget args: $args');
     
     return Center(
       child: Column(
@@ -33,21 +65,21 @@ class PoemsScreen extends GetView<PoemController> {
   }
 
   String _getTitle() {
-    final args = Get.arguments;
+    final args = Get.arguments as Map<String, dynamic>?;
     final viewType = args?['view_type'];
     final bookName = args?['book_name'];
 
     if (viewType == 'book_specific' && bookName != null) {
       return bookName;
     }
-    return 'All Poems';
+    return 'all_poems'.tr;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('all_poems'.tr),
+        title: Text(_getTitle()),
       ),
       body: Obx(() {
         if (controller.isLoading.value) {

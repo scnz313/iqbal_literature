@@ -28,7 +28,6 @@ class PoemController extends GetxController {
     super.onInit();
     _loadFavorites();
     _loadFontSize();
-    _processArguments();
   }
 
   void _processArguments() {
@@ -36,27 +35,20 @@ class PoemController extends GetxController {
     final args = Get.arguments;
     
     if (args == null) {
-      debugPrint('❌ No arguments received');
-      loadAllPoems();
+      debugPrint('❌ No arguments received - loading all poems');
+      loadAllPoems();  // Changed to load all poems
       return;
     }
 
-    debugPrint('📥 Raw arguments: $args');
-    
     if (args is! Map<String, dynamic>) {
-      debugPrint('❌ Arguments not a Map');
-      loadAllPoems();
+      debugPrint('❌ Arguments not a Map - loading all poems');
+      loadAllPoems();  // Changed to load all poems
       return;
     }
 
     final bookId = args['book_id'];
     final bookName = args['book_name']?.toString();
     final viewType = args['view_type']?.toString();
-
-    debugPrint('Parsed arguments:');
-    debugPrint('- book_id: $bookId (${bookId?.runtimeType})');
-    debugPrint('- book_name: $bookName');
-    debugPrint('- view_type: $viewType');
 
     // Reset state
     poems.clear();
@@ -68,10 +60,8 @@ class PoemController extends GetxController {
       debugPrint('✅ Loading book-specific poems');
       loadPoemsByBookId(bookId);
     } else {
-      debugPrint('ℹ️ Falling back to all poems because:');
-      debugPrint('- bookId null? ${bookId == null}');
-      debugPrint('- viewType: $viewType');
-      loadAllPoems();
+      debugPrint('ℹ️ Loading all poems');
+      loadAllPoems();  // Changed to load all poems
     }
   }
 
@@ -89,9 +79,9 @@ class PoemController extends GetxController {
       if (bookId is int) {
         targetBookId = bookId;
       } else if (bookId is String) {
-        targetBookId = int.tryParse(bookId) ?? -1;
+        targetBookId = int.tryParse(bookId) ?? 3;
       } else {
-        targetBookId = -1;
+        targetBookId = 3;
       }
 
       debugPrint('🔍 Parsed book_id: $targetBookId');
@@ -200,7 +190,7 @@ class PoemController extends GetxController {
       debugPrint('⏳ Loading all poems');
       isLoading.value = true;
       error.value = '';
-      poems.clear(); // Clear existing poems
+      poems.clear();
       
       final result = await _poemRepository.getAllPoems();
       
@@ -209,12 +199,7 @@ class PoemController extends GetxController {
       } else {
         poems.assignAll(result);
         debugPrint('✅ Loaded ${result.length} total poems');
-        
-        // Debug info
-        final uniqueBookIds = result.map((p) => p.bookId).toSet();
-        debugPrint('📊 Poems from books: $uniqueBookIds');
-        debugPrint('First poem: ${result.first.title}');
-        debugPrint('Last poem: ${result.last.title}');
+        debugPrint('📊 Poems from books: ${result.map((p) => p.bookId).toSet()}');
       }
     } catch (e) {
       debugPrint('❌ Error loading poems: $e');
