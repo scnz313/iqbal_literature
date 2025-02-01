@@ -10,105 +10,68 @@ class PoemRepository {
 
   PoemRepository(this._firestore);
 
-  Future<List<Poem>> getAllPoems() async {
-    try {
-      debugPrint('📚 Fetching all poems');
-
-      // Remove any limit and fetch all documents
-      final QuerySnapshot<Map<String, dynamic>> snapshot = await _firestore
-          .collection('poems')
-          .orderBy('_id')
-          .get();  // No limit here
-
-      debugPrint('📝 Total poems found: ${snapshot.docs.length}');
-
-      final poems = snapshot.docs.map((doc) {
-        try {
-          final poem = Poem.fromFirestore(doc);
-          debugPrint('Processing poem ${poem.id}: ${poem.title}');
-          return poem;
-        } catch (e) {
-          debugPrint('❌ Error parsing poem ${doc.id}: $e');
-          return null;
-        }
-      }).whereType<Poem>().toList();
-
-      // Sort poems by _id if needed
-      poems.sort((a, b) => a.id.compareTo(b.id));
-
-      debugPrint('✅ Successfully loaded ${poems.length} poems');
-      return poems;
-
-    } catch (e) {
-      debugPrint('❌ Error fetching all poems: $e');
-      return [];
-    }
-  }
-
-  Future<Poem?> getPoemById(String id) async {
-    try {
-      final doc = await _firestore.collection('poems').doc(id).get();
-      if (!doc.exists) return null;
-      
-      final data = doc.data()!;
-      data['id'] = doc.id;
-      return Poem.fromMap(data);
-    } catch (e) {
-      debugPrint('Failed to fetch poem: $e');
-      return null;
-    }
-  }
-
   Future<List<Poem>> getPoemsByBookId(int bookId) async {
     try {
-      debugPrint('🔥 FIRESTORE QUERY: book_id=$bookId (${bookId.runtimeType})');
+      debugPrint('\n==== FIRESTORE QUERY ====');
+      debugPrint('📥 Book ID: $bookId (${bookId.runtimeType})');
 
-      // Ensure we're querying with an integer
+      // Execute query with strict filtering
       final QuerySnapshot<Map<String, dynamic>> snapshot = await _firestore
-          .collection('poems')
+          .collection(_collection)
           .where('book_id', isEqualTo: bookId)
-          .orderBy('_id')
           .get();
 
-      debugPrint('📝 Raw query returned ${snapshot.docs.length} documents');
+      debugPrint('📊 Raw query returned ${snapshot.docs.length} documents');
 
-      // Debug each document
-      snapshot.docs.forEach((doc) {
-        final data = doc.data();
-        debugPrint('📄 Poem ${doc.id}:');
-        debugPrint('  - book_id: ${data['book_id']} (${data['book_id'].runtimeType})');
-        debugPrint('  - title: ${data['title']}');
-      });
-
-      // Process with strict type checking
       final poems = <Poem>[];
       for (var doc in snapshot.docs) {
         try {
           final data = doc.data();
           final docBookId = data['book_id'];
           
-          // Ensure exact numeric match
-          if (docBookId is int && docBookId == bookId) {
-            final poem = Poem.fromFirestore(doc);
-            poems.add(poem);
-            debugPrint('✅ Added poem: ${poem.title}');
-          } else {
-            debugPrint('❌ Skipped poem ${doc.id} - wrong book_id type or value');
+          debugPrint('\nProcessing document:');
+          debugPrint('- ID: ${doc.id}');
+          debugPrint('- book_id: $docBookId (${docBookId.runtimeType})');
+          debugPrint('- title: ${data['title']}');
+
+          // Strict type and value checking
+          if (docBookId == null) {
+            debugPrint('❌ Skipping - null book_id');
+            continue;
           }
+
+          final int actualBookId;
+          if (docBookId is int) {
+            actualBookId = docBookId;
+          } else if (docBookId is num) {
+            actualBookId = docBookId.toInt();
+          } else {
+            debugPrint('❌ Skipping - invalid book_id type');
+            continue;
+          }
+
+          if (actualBookId != bookId) {
+            debugPrint('❌ Skipping - book_id mismatch');
+            continue;
+          }
+
+          final poem = Poem.fromFirestore(doc);
+          poems.add(poem);
+          debugPrint('✅ Added poem to results');
+
         } catch (e) {
-          debugPrint('❌ Error processing doc: $e');
+          debugPrint('❌ Error processing document: $e');
         }
       }
 
-      // Final validation
-      final uniqueBookIds = poems.map((p) => p.bookId).toSet();
-      debugPrint('📊 Results:');
+      debugPrint('\n📊 Final Results:');
       debugPrint('- Total poems: ${poems.length}');
-      debugPrint('- Unique book IDs: $uniqueBookIds');
-
+      debugPrint('- Book IDs: ${poems.map((p) => p.bookId).toSet()}');
+      
       return poems;
-    } catch (e) {
-      debugPrint('❌ Query Error: $e');
+
+    } catch (e, stack) {
+      debugPrint('❌ Query failed: $e\n$stack');
       return [];
     }
   }
@@ -171,6 +134,33 @@ class PoemRepository {
       return poems;
     } catch (e) {
       debugPrint('Search error: $e');
+      return [];
+    }
+  }
+
+  Future<List<Poem>> getAllPoems() async {
+    try {
+      debugPrint('📚 Fetching all poems');
+      
+      final snapshot = await _firestore
+          .collection('poems')
+          .orderBy('_id')
+          .get();
+
+      final poems = <Poem>[];
+      for (var doc in snapshot.docs) {
+        try {
+          final poem = Poem.fromFirestore(doc);
+          poems.add(poem);
+        } catch (e) {
+          debugPrint('❌ Error parsing poem ${doc.id}: $e');
+        }
+      }
+
+      debugPrint('📊 Loaded ${poems.length} total poems');
+      return poems;
+    } catch (e) {
+      debugPrint('❌ Error: $e');
       return [];
     }
   }

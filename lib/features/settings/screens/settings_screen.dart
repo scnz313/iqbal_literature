@@ -4,6 +4,7 @@ import '../controllers/settings_controller.dart';
 import '../../../core/controllers/font_controller.dart';
 import '../../../core/widgets/custom_app_bar.dart';
 import '../widgets/language_selector.dart';
+import 'about_screen.dart';
 
 class SettingsScreen extends GetView<SettingsController> {
   const SettingsScreen({super.key});
@@ -11,8 +12,8 @@ class SettingsScreen extends GetView<SettingsController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const CustomAppBar(
-        title: 'Settings',
+      appBar: CustomAppBar(
+        title: 'settings'.tr,
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -33,7 +34,7 @@ class SettingsScreen extends GetView<SettingsController> {
           // Theme Section
           _buildSection(
             context,
-            title: 'Theme',
+            title: 'theme'.tr,
             icon: Icons.palette,
             child: Obx(() => Column(
               children: [
@@ -47,34 +48,93 @@ class SettingsScreen extends GetView<SettingsController> {
           const SizedBox(height: 16),
 
           // Night Mode Scheduler
-          Obx(() => SwitchListTile(
-                title: const Text('Enable Night Mode Scheduler'),
-                value: controller.isNightModeScheduled.value,
-                onChanged: (bool val) {
-                  controller.enableNightModeSchedule(val);
-                },
-              )),
+          _buildSection(
+            context,
+            title: 'night_mode'.tr,
+            icon: Icons.nightlight_round,
+            child: Column(
+              children: [
+                Obx(() => SwitchListTile(
+                      title: Text('enable_scheduler'.tr),
+                      value: controller.isNightModeScheduled.value,
+                      onChanged: controller.enableNightModeSchedule,
+                    )),
+                Obx(() {
+                  if (!controller.isNightModeScheduled.value) return const SizedBox();
+                  return Column(
+                    children: [
+                      ListTile(
+                        title: Text('start_time'.tr),
+                        trailing: Text(controller.nightModeStartTime.value.format(context)),
+                        onTap: () async {
+                          final TimeOfDay? time = await showTimePicker(
+                            context: context,
+                            initialTime: controller.nightModeStartTime.value,
+                          );
+                          if (time != null) {
+                            controller.setNightModeStartTime(time);
+                          }
+                        },
+                      ),
+                      ListTile(
+                        title: Text('end_time'.tr),
+                        trailing: Text(controller.nightModeEndTime.value.format(context)),
+                        onTap: () async {
+                          final TimeOfDay? time = await showTimePicker(
+                            context: context,
+                            initialTime: controller.nightModeEndTime.value,
+                          );
+                          if (time != null) {
+                            controller.setNightModeEndTime(time);
+                          }
+                        },
+                      ),
+                    ],
+                  );
+                }),
+              ],
+            ),
+          ),
 
           const SizedBox(height: 16),
 
           // About Section
           _buildSection(
             context,
-            title: 'About',
+            title: 'about'.tr,
             icon: Icons.info,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Version: ${controller.appVersion}',
+                  '${'version'.tr}: ${controller.appVersion}',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 8),
                 TextButton(
                   onPressed: controller.showAbout,
-                  child: const Text('About App'),
+                  child: Text('about_app'.tr),
                 ),
               ],
+            ),
+          ),
+
+          const Divider(height: 32),
+
+          ListTile(
+            leading: const Icon(Icons.info_outline),
+            title: const Text('About App'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Get.to(() => const AboutScreen()),
+          ),
+
+          // Version number
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              'Version 1.0.0',
+              style: Theme.of(context).textTheme.bodySmall,
+              textAlign: TextAlign.center,
             ),
           ),
         ],
@@ -111,7 +171,7 @@ class SettingsScreen extends GetView<SettingsController> {
 
   Widget _buildThemeOption(BuildContext context, String label, String value) {
     return RadioListTile<String>(
-      title: Text(label),
+      title: Text(label.tr),
       value: value,
       groupValue: controller.currentTheme.value,
       onChanged: (value) => controller.changeTheme(value!),

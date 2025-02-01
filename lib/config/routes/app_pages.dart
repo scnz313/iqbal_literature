@@ -7,6 +7,8 @@ import '../../features/poems/bindings/poem_binding.dart';
 import '../../features/search/screens/search_screen.dart';
 import '../../features/settings/screens/settings_screen.dart';
 import '../../features/search/bindings/search_binding.dart';
+import '../../features/favorites/screens/favorites_screen.dart';
+import '../../features/favorites/bindings/favorites_binding.dart';
 
 class Routes {
   static const String home = '/';
@@ -16,6 +18,7 @@ class Routes {
   static const String search = '/search';
   static const String settings = '/settings';
   static const String bookPoems = '/book-poems'; // Add this new route
+  static const String favorites = '/favorites'; // Add this new route
 }
 
 class AppPages {
@@ -60,6 +63,11 @@ class AppPages {
       page: () => const PoemsScreen(),
       binding: PoemBinding(),
       transition: Transition.rightToLeft,
+    ),
+    GetPage(
+      name: Routes.favorites,  // Add new route for favorites
+      page: () => const FavoritesScreen(),
+      binding: FavoritesBinding(),
     ),
   ];
 }

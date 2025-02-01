@@ -15,6 +15,15 @@ class HomeScreen extends GetView<HomeController> {
       appBar: AppBar(
         title: const Text('Iqbal Literature'),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.favorite_outline),
+            onPressed: () {
+              Get.toNamed('/favorites');
+            },
+            tooltip: 'Favorites',
+          ),
+        ],
       ),
       body: Obx(() => IndexedStack(
         index: controller.currentIndex.value,

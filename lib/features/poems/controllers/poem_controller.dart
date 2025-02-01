@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../data/models/poem/poem.dart';
 import '../../../data/repositories/poem_repository.dart';
 import '../../../data/services/analytics_service.dart';
+import '../../books/controllers/book_controller.dart';
 
 class PoemController extends GetxController {
   final PoemRepository _poemRepository;
@@ -18,7 +19,7 @@ class PoemController extends GetxController {
   final RxString error = ''.obs;
   final RxSet<String> favorites = <String>{}.obs;
   final RxString viewType = ''.obs;
-  final RxDouble fontSize = 20.0.obs;  // Default font size
+  final RxDouble fontSize = 20.0.obs;
   static const double minFontSize = 16.0;
   static const double maxFontSize = 36.0;
 
@@ -26,131 +27,171 @@ class PoemController extends GetxController {
   void onInit() {
     super.onInit();
     _loadFavorites();
-    _loadFontSize();  // Add this line
-    
-    debugPrint('=== POEM CONTROLLER INIT ===');
+    _loadFontSize();
+    _processArguments();
+  }
+
+  void _processArguments() {
+    debugPrint('\n==== PROCESSING NAVIGATION ARGS ====');
     final args = Get.arguments;
-    debugPrint('📥 Arguments received: $args');
     
-    if (args != null && args is Map<String, dynamic>) {
-      final bookId = args['book_id'];
-      final bookName = args['book_name'];
-      final viewType = args['view_type'];
-      
-      debugPrint('📄 Parsed arguments:');
-      debugPrint('- Book ID: $bookId (${bookId?.runtimeType})');
-      debugPrint('- Book Name: $bookName');
-      debugPrint('- View Type: $viewType');
-      
-      currentBookName.value = bookName ?? '';
-      viewType.value = viewType ?? '';
-
-      if (bookId != null && viewType == 'book_specific') {
-        loadPoemsByBookId(bookId);
-      } else {
-        loadAllPoems();
-      }
-    } else {
-      debugPrint('❌ No arguments - defaulting to all poems');
+    if (args == null) {
+      debugPrint('❌ No arguments received');
       loadAllPoems();
+      return;
     }
-  }
 
-  Future<void> _loadFavorites() async {
-    // Load favorites from local storage
-    final prefs = await SharedPreferences.getInstance();
-    final savedFavorites = prefs.getStringList('favorites') ?? [];
-    favorites.addAll(savedFavorites);
-  }
-
-  Future<void> _saveFavorites() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList('favorites', favorites.toList());
-  }
-
-  Future<void> _loadFontSize() async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedFontSize = prefs.getDouble('font_size');
-    if (savedFontSize != null) {
-      fontSize.value = savedFontSize.clamp(minFontSize, maxFontSize);
+    debugPrint('📥 Raw arguments: $args');
+    
+    if (args is! Map<String, dynamic>) {
+      debugPrint('❌ Arguments not a Map');
+      loadAllPoems();
+      return;
     }
-  }
 
-  Future<void> _saveFontSize() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble('font_size', fontSize.value);
-  }
+    final bookId = args['book_id'];
+    final bookName = args['book_name']?.toString();
+    final viewType = args['view_type']?.toString();
 
-  bool isFavorite(Poem poem) => favorites.contains(poem.id);
+    debugPrint('Parsed arguments:');
+    debugPrint('- book_id: $bookId (${bookId?.runtimeType})');
+    debugPrint('- book_name: $bookName');
+    debugPrint('- view_type: $viewType');
 
-  void toggleFavorite(Poem poem) {
-    if (isFavorite(poem)) {
-      favorites.remove(poem.id);
+    // Reset state
+    poems.clear();
+    currentBookName.value = bookName ?? '';
+    this.viewType.value = viewType ?? '';
+    error.value = '';
+
+    if (bookId != null && viewType == 'book_specific') {
+      debugPrint('✅ Loading book-specific poems');
+      loadPoemsByBookId(bookId);
     } else {
-      favorites.add(poem.id);
-    }
-    _saveFavorites();
-  }
-
-  void _debugPrintBookInfo(int bookId, List<Poem> poems) {
-    debugPrint('📊 Book Poems Debug Info:');
-    debugPrint('Book ID: $bookId');
-    debugPrint('Total poems found: ${poems.length}');
-    debugPrint('Unique book IDs in results: ${poems.map((p) => p.bookId).toSet()}');
-    if (poems.isNotEmpty) {
-      debugPrint('First poem info:');
-      debugPrint('- Title: ${poems.first.title}');
-      debugPrint('- Book ID: ${poems.first.bookId}');
+      debugPrint('ℹ️ Falling back to all poems because:');
+      debugPrint('- bookId null? ${bookId == null}');
+      debugPrint('- viewType: $viewType');
+      loadAllPoems();
     }
   }
 
   Future<void> loadPoemsByBookId(dynamic bookId) async {
     try {
-      debugPrint('🔄 Loading poems for book: $bookId');
-      debugPrint('📥 Initial poems count: ${poems.length}');
+      debugPrint('\n==== LOADING BOOK POEMS ====');
+      debugPrint('📥 Incoming book_id: $bookId (${bookId.runtimeType})');
       
       isLoading.value = true;
       error.value = '';
-      poems.clear(); // Clear existing poems
+      poems.clear();  // Ensure list is empty
 
-      final int actualBookId;
+      // Parse book ID
+      final int targetBookId;
       if (bookId is int) {
-        actualBookId = bookId;
+        targetBookId = bookId;
       } else if (bookId is String) {
-        actualBookId = int.tryParse(bookId) ?? 0;
+        targetBookId = int.tryParse(bookId) ?? -1;
       } else {
-        actualBookId = 0;
+        targetBookId = -1;
       }
 
-      if (actualBookId <= 0) {
+      debugPrint('🔍 Parsed book_id: $targetBookId');
+
+      if (targetBookId <= 0) {
+        debugPrint('❌ Invalid book ID');
         error.value = 'Invalid book ID';
         return;
       }
 
-      final result = await _poemRepository.getPoemsByBookId(actualBookId);
-      debugPrint('📦 Query returned ${result.length} poems');
+      final result = await _poemRepository.getPoemsByBookId(targetBookId);
       
-      // Validate results
+      debugPrint('📦 Repository returned ${result.length} poems');
+      
       if (result.isEmpty) {
+        debugPrint('⚠️ No poems found');
         error.value = 'No poems found for this book';
         return;
       }
 
-      // Verify all poems belong to this book
-      if (result.any((poem) => poem.bookId != actualBookId)) {
-        debugPrint('⚠️ Found poems with mismatched book_id!');
-        error.value = 'Data integrity error';
-        return;
-      }
+      // Verify book IDs
+      final validPoems = result.where((p) {
+        final isValid = p.bookId == targetBookId;
+        if (!isValid) {
+          debugPrint('⚠️ Found poem with wrong book_id: ${p.bookId}');
+        }
+        return isValid;
+      }).toList();
 
-      poems.assignAll(result);
-      debugPrint('✅ Successfully loaded ${result.length} poems');
+      poems.assignAll(validPoems);
+      debugPrint('✅ Final result: ${poems.length} poems');
+      debugPrint('Book IDs in list: ${poems.map((p) => p.bookId).toSet()}');
 
     } catch (e) {
       debugPrint('❌ Error: $e');
       error.value = 'Failed to load poems';
     } finally {
       isLoading.value = false;
+    }
+  }
+
+  Future<void> _loadFavorites() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedFavorites = prefs.getStringList('favorites') ?? [];
+      favorites.addAll(savedFavorites.map((id) => id.toString()));
+    } catch (e) {
+      debugPrint('❌ Error loading favorites: $e');
+    }
+  }
+
+  Future<void> _loadFontSize() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedFontSize = prefs.getDouble('font_size');
+      if (savedFontSize != null) {
+        fontSize.value = savedFontSize.clamp(minFontSize, maxFontSize);
+      }
+    } catch (e) {
+      debugPrint('❌ Error loading font size: $e');
+    }
+  }
+
+  Future<void> _saveFontSize() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble('font_size', fontSize.value);
+    } catch (e) {
+      debugPrint('❌ Error saving font size: $e');
+    }
+  }
+
+  bool isFavorite(Poem poem) {
+    return favorites.contains(poem.id.toString());
+  }
+
+  void toggleFavorite(Poem poem) {
+    final id = poem.id.toString();
+    if (favorites.contains(id)) {
+      favorites.remove(id);
+    } else {
+      favorites.add(id);
+    }
+    _saveFavorites();
+    
+    _analyticsService.logEvent(
+      name: 'toggle_poem_favorite',
+      parameters: {
+        'poem_id': poem.id,
+        'is_favorite': favorites.contains(id),
+      },
+    );
+  }
+
+  Future<void> _saveFavorites() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList('favorites', favorites.toList());
+    } catch (e) {
+      debugPrint('❌ Error saving favorites: $e');
     }
   }
 
@@ -180,6 +221,17 @@ class PoemController extends GetxController {
       error.value = 'Failed to load poems';
     } finally {
       isLoading.value = false;
+    }
+  }
+
+  Future<String> getBookName(int bookId) async {
+    try {
+      final bookController = Get.find<BookController>();
+      final book = bookController.books.firstWhereOrNull((b) => b.id == bookId);
+      return book?.name ?? '';
+    } catch (e) {
+      debugPrint('Error getting book name: $e');
+      return '';
     }
   }
 

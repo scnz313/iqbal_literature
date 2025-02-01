@@ -47,34 +47,7 @@ class PoemsScreen extends GetView<PoemController> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          _getTitle(),
-          style: const TextStyle(
-            fontFamily: 'JameelNooriNastaleeq',
-            fontSize: 22,
-          ),
-          textDirection: TextDirection.rtl,
-        ),
-        actions: [
-          if (kDebugMode)
-            IconButton(
-              icon: const Icon(Icons.bug_report),
-              onPressed: () {
-                final args = Get.arguments;
-                debugPrint('=== DEBUG INFO ===');
-                debugPrint('Arguments: $args');
-                debugPrint('Current book name: ${controller.currentBookName.value}');
-                debugPrint('View type: ${controller.viewType.value}');
-                debugPrint('Total poems: ${controller.poems.length}');
-                if (controller.poems.isNotEmpty) {
-                  final uniqueBookIds = controller.poems.map((p) => p.bookId).toSet();
-                  debugPrint('Unique book IDs in poems: $uniqueBookIds');
-                  debugPrint('First poem: ${controller.poems.first.toMap()}');
-                }
-                debugPrint('==================');
-              },
-            ),
-        ],
+        title: Text('all_poems'.tr),
       ),
       body: Obx(() {
         if (controller.isLoading.value) {

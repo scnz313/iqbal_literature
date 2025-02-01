@@ -11,8 +11,28 @@ class SearchController extends GetxController {
   final searchController = TextEditingController();
   final urduSearchController = TextEditingController();
   Timer? _debounceTimer;
+  String _lastQuery = '';
+
+  // Minimum query length for search
+  static const int _minQueryLength = 2;
 
   SearchController(this._searchService);
+
+  @override
+  void onInit() {
+    super.onInit();
+    // Pre-cache data when controller is initialized
+    _precacheData();
+  }
+
+  Future<void> _precacheData() async {
+    try {
+      // Trigger initial search to cache data
+      await _searchService.search('', limit: 1);
+    } catch (e) {
+      debugPrint('Precache error: $e');
+    }
+  }
 
   @override
   void onClose() {
@@ -41,9 +61,21 @@ class SearchController extends GetxController {
     
     if (query.isEmpty) {
       searchResults.clear();
+      _lastQuery = '';
       return;
     }
 
+    // Don't search if query is too short, unless it's Urdu
+    if (query.length < _minQueryLength && !isUrduQuery) {
+      return;
+    }
+
+    // Don't search if query hasn't changed
+    if (query == _lastQuery) {
+      return;
+    }
+
+    _lastQuery = query;
     _debounceTimer = Timer(const Duration(milliseconds: 300), () {
       performSearch(query);
     });
@@ -56,6 +88,7 @@ class SearchController extends GetxController {
       searchResults.assignAll(results);
     } catch (e) {
       debugPrint('Search error: $e');
+      searchResults.clear();
     } finally {
       isLoading.value = false;
     }

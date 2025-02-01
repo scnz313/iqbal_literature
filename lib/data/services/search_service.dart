@@ -1,9 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../features/search/widgets/search_result.dart';
+import 'dart:math' show min;
 
 class SearchService {
   final FirebaseFirestore _firestore;
+  List<Map<String, dynamic>>? _cachedBooks;
+  List<Map<String, dynamic>>? _cachedPoems;
   
   SearchService(this._firestore);
 
@@ -11,29 +14,153 @@ class SearchService {
     if (query.trim().isEmpty) return [];
 
     try {
-      debugPrint('🔍 Starting search for: $query');
       final normalizedQuery = _normalizeQuery(query);
+      final isUrdu = _isUrduText(normalizedQuery);
       
-      // Search across all collections
       final results = await Future.wait([
-        _searchBooks(normalizedQuery, limit: limit),
-        _searchPoems(normalizedQuery, limit: limit),
+        _searchBooks(normalizedQuery, isUrdu: isUrdu, limit: limit),
+        _searchPoems(normalizedQuery, isUrdu: isUrdu, limit: limit),
       ]);
-
-      debugPrint('📚 Found ${results[0].length} books');
-      debugPrint('📝 Found ${results[1].length} poems');
 
       final combinedResults = [
         ...results[0],
         ...results[1],
-      ];
+      ]..sort((a, b) {
+        // First sort by relevance
+        final byRelevance = b.relevance.compareTo(a.relevance);
+        if (byRelevance != 0) return byRelevance;
+        
+        // Then by type (books first, then poems, then lines)
+        return a.type.index.compareTo(b.type.index);
+      });
 
-      debugPrint('📊 Total results: ${combinedResults.length}');
-      return combinedResults;
+      return combinedResults.take(limit ?? 20).toList();
     } catch (e) {
       debugPrint('❌ Search error: $e');
       return [];
     }
+  }
+
+  Future<List<SearchResult>> _searchBooks(String query, {required bool isUrdu, int? limit}) async {
+    final books = await _getCachedBooks();
+    final results = <SearchResult>[];
+    
+    for (final book in books) {
+      final score = _calculateMatchScore(
+        searchText: isUrdu ? book['name'] : book['name'].toLowerCase(),
+        query: query,
+        isUrdu: isUrdu,
+      );
+      
+      if (score > 0) {
+        results.add(SearchResult(
+          id: book['id'] ?? '',
+          title: book['name'] ?? '',
+          subtitle: book['description'] ?? '',
+          type: SearchResultType.book,
+          relevance: score,
+          highlight: _extractMatchingText(book['name'], query, isUrdu),
+        ));
+      }
+    }
+    
+    return results;
+  }
+
+  Future<List<SearchResult>> _searchPoems(String query, {required bool isUrdu, int? limit}) async {
+    final poems = await _getCachedPoems();
+    final results = <SearchResult>[];
+    
+    for (final poem in poems) {
+      // Check title match
+      var titleScore = _calculateMatchScore(
+        searchText: isUrdu ? poem['title'] : poem['title'].toLowerCase(),
+        query: query,
+        isUrdu: isUrdu,
+      );
+      
+      if (titleScore > 0) {
+        results.add(SearchResult(
+          id: poem['id'] ?? '',
+          title: poem['title'] ?? '',
+          subtitle: _extractPreview(poem['data']),
+          type: SearchResultType.poem,
+          relevance: titleScore,
+          highlight: _extractMatchingText(poem['title'], query, isUrdu),
+        ));
+        continue;
+      }
+      
+      // Check content match
+      final matchingLine = _findBestMatchingLine(poem['data'], query, isUrdu);
+      if (matchingLine != null) {
+        results.add(SearchResult(
+          id: poem['id'] ?? '',
+          title: poem['title'] ?? '',
+          subtitle: matchingLine.line,
+          type: SearchResultType.line,
+          relevance: matchingLine.score,
+          highlight: matchingLine.line,
+        ));
+      }
+    }
+    
+    return results;
+  }
+
+  double _calculateMatchScore({
+    required String searchText,
+    required String query,
+    required bool isUrdu,
+  }) {
+    if (searchText.isEmpty || query.isEmpty) return 0;
+    
+    if (isUrdu) {
+      // For Urdu text, use contains for exact matching
+      if (searchText.contains(query)) {
+        return 1.0;
+      }
+      // For partial matches in Urdu
+      for (var word in query.split(' ')) {
+        if (word.length > 2 && searchText.contains(word)) {
+          return 0.7;
+        }
+      }
+    } else {
+      // For English text, use more flexible matching
+      final similarity = _calculateSimilarity(searchText, query);
+      if (similarity > 0.8) return similarity;
+      
+      // Check for partial word matches
+      for (var word in query.split(' ')) {
+        if (word.length > 2 && searchText.contains(word)) {
+          return 0.6;
+        }
+      }
+    }
+    
+    return 0;
+  }
+
+  ({String line, double score})? _findBestMatchingLine(String text, String query, bool isUrdu) {
+    var bestMatch = (line: '', score: 0.0);
+    
+    for (var line in text.split('\n')) {
+      final normalizedLine = isUrdu ? line.trim() : line.trim().toLowerCase();
+      if (normalizedLine.isEmpty) continue;
+      
+      final score = _calculateMatchScore(
+        searchText: normalizedLine,
+        query: query,
+        isUrdu: isUrdu,
+      );
+      
+      if (score > bestMatch.score) {
+        bestMatch = (line: line.trim(), score: score);
+      }
+    }
+    
+    return bestMatch.score > 0 ? bestMatch : null;
   }
 
   String _normalizeQuery(String query) {
@@ -51,128 +178,37 @@ class SearchService {
     return text.contains(RegExp(r'[\u0600-\u06FF]'));
   }
 
-  Future<List<SearchResult>> _searchBooks(String query, {int? limit}) async {
-    try {
-      debugPrint('📚 Starting book search for query: $query');
-      
-      // Get all books and filter in memory
-      final snapshot = await _firestore
-          .collection('books')
-          .get();
-
-      final results = snapshot.docs.where((doc) {
-        final data = doc.data();
-        final name = (data['name'] ?? '').toString().toLowerCase();
-        final description = (data['description'] ?? '').toString().toLowerCase();
-        final searchText = query.toLowerCase();
-        
-        return name.contains(searchText) || description.contains(searchText);
-      }).map((doc) {
-        final data = doc.data();
-        debugPrint('📖 Book found: ${data['name']}');
-        return SearchResult(
-          id: doc.id,
-          title: data['name'] ?? '',
-          subtitle: data['description'] ?? '',
-          type: SearchResultType.book,
-          relevance: 1.0,
-          highlight: '',
-        );
+  Future<List<Map<String, dynamic>>> _getCachedBooks() async {
+    if (_cachedBooks == null) {
+      final snapshot = await _firestore.collection('books').get();
+      _cachedBooks = snapshot.docs.map((doc) => {
+        'id': doc.id,
+        ...doc.data(),
       }).toList();
-
-      debugPrint('📚 Found ${results.length} books');
-      return results.take(limit ?? 10).toList();
-    } catch (e) {
-      debugPrint('❌ Book search error: $e');
-      return [];
     }
+    return _cachedBooks!;
   }
 
-  Future<List<SearchResult>> _searchPoems(String query, {int? limit}) async {
-    try {
-      debugPrint('📝 Starting poem search for query: $query');
-      
-      // Get all poems and filter in memory
-      final snapshot = await _firestore
-          .collection('poems')
-          .get();
-
-      final results = <SearchResult>[];
-      
-      for (var doc in snapshot.docs) {
-        final data = doc.data();
-        final title = (data['title'] ?? '').toString().toLowerCase();
-        final content = (data['data'] ?? '').toString().toLowerCase();
-        final searchText = query.toLowerCase();
-
-        // Check title match
-        if (title.contains(searchText)) {
-          debugPrint('📜 Poem found by title: ${data['title']}');
-          results.add(SearchResult(
-            id: doc.id,
-            title: data['title'] ?? '',
-            subtitle: _extractPreview(data['data'] ?? ''),
-            type: SearchResultType.poem,
-            relevance: 1.0,
-            highlight: '',
-          ));
-        }
-        // Check content match
-        else if (content.contains(searchText)) {
-          final matchingLine = _findMatchingLine(data['data'] ?? '', query);
-          if (matchingLine.isNotEmpty) {
-            debugPrint('📜 Poem found by content: ${data['title']} - Line: $matchingLine');
-            results.add(SearchResult(
-              id: doc.id,
-              title: data['title'] ?? '',
-              subtitle: matchingLine,
-              type: SearchResultType.line,
-              relevance: 0.8,
-              highlight: '',
-            ));
-          }
-        }
-      }
-
-      return results.take(limit ?? 10).toList();
-    } catch (e) {
-      debugPrint('❌ Poem search error: $e');
-      return [];
+  Future<List<Map<String, dynamic>>> _getCachedPoems() async {
+    if (_cachedPoems == null) {
+      final snapshot = await _firestore.collection('poems').get();
+      _cachedPoems = snapshot.docs.map((doc) => {
+        'id': doc.id,
+        ...doc.data(),
+      }).toList();
     }
+    return _cachedPoems!;
   }
 
-  String _findMatchingLine(String text, String query) {
-    final lines = text.split('\n');
-    
-    for (var line in lines) {
-      if (line.toLowerCase().contains(query.toLowerCase())) {
-        debugPrint('📌 Found matching line: $line');
-        return line.trim();
-      }
-    }
-    return '';
-  }
+  String _extractMatchingText(String text, String query, bool isUrdu) {
+    final searchIndex = isUrdu
+        ? text.indexOf(query)
+        : text.toLowerCase().indexOf(query.toLowerCase());
+    if (searchIndex == -1) return '';
 
-  List<String> _createSearchTerms(String query) {
-    final normalized = _normalizeQuery(query);
-    final terms = normalized.split(' ')
-      .where((term) => term.isNotEmpty)
-      .map((term) => term.toLowerCase())
-      .toList();
-    
-    // Add the full query as a term
-    terms.add(normalized.toLowerCase());
-    
-    // For Urdu text, add variations
-    if (query.contains(RegExp(r'[\u0600-\u06FF]'))) {
-      terms.addAll([
-        normalized.replaceAll('ی', 'ي'),
-        normalized.replaceAll('ک', 'ك'),
-        normalized.replaceAll('ی', 'ي').replaceAll('ک', 'ك'),
-      ]);
-    }
-    
-    return terms;
+    final start = searchIndex > 50 ? searchIndex - 50 : 0;
+    final end = text.length > searchIndex + 50 ? searchIndex + 50 : text.length;
+    return '...${text.substring(start, end)}...';
   }
 
   String _extractPreview(String text, [String? query]) {
@@ -185,5 +221,47 @@ class SearchService {
       }
     }
     return text.length > 100 ? '${text.substring(0, 100)}...' : text;
+  }
+
+  void clearCache() {
+    _cachedBooks = null;
+    _cachedPoems = null;
+  }
+
+  double _calculateSimilarity(String s1, String s2) {
+    if (s1.isEmpty || s2.isEmpty) return 0.0;
+    if (s1 == s2) return 1.0;
+
+    final longer = s1.length > s2.length ? s1 : s2;
+    final shorter = s1.length > s2.length ? s2 : s1;
+
+    final longerLength = longer.length;
+    if (longerLength == 0) return 1.0;
+
+    return (longerLength - _levenshteinDistance(longer, shorter)) / 
+           longerLength.toDouble();
+  }
+
+  int _levenshteinDistance(String s1, String s2) {
+    var costs = List<int>.filled(s2.length + 1, 0);
+
+    for (var i = 0; i <= s1.length; i++) {
+      var lastValue = i;
+      for (var j = 0; j <= s2.length; j++) {
+        if (i == 0) {
+          costs[j] = j;
+        } else if (j > 0) {
+          var newValue = costs[j - 1];
+          if (s1[i - 1] != s2[j - 1]) {
+            newValue = [newValue, lastValue, costs[j]]
+                .reduce(min) + 1;
+          }
+          costs[j - 1] = lastValue;
+          lastValue = newValue;
+        }
+      }
+      if (i > 0) costs[s2.length] = lastValue;
+    }
+    return costs[s2.length];
   }
 }

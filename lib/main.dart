@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'core/services/init_service.dart';
-import 'config/routes/app_pages.dart';  // Update this import
+import 'config/routes/app_pages.dart';
 import 'firebase_options.dart';
-import 'features/presentation/pages/home/home_page.dart';
 import 'config/providers/theme_provider.dart';
+import 'core/localization/app_translations.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,10 +15,24 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   
-  // Then initialize app services
+  // Initialize app services
   await InitService.init();
   
-  runApp(const MyApp());
+  // Initialize theme provider
+  final themeProvider = Get.put(ThemeProvider(Get.find()));
+  
+  runApp(GetMaterialApp(
+    title: 'app_name'.tr,
+    debugShowCheckedModeBanner: false,
+    theme: themeProvider.lightTheme,
+    darkTheme: themeProvider.darkTheme,
+    themeMode: themeProvider.themeMode,
+    initialRoute: Routes.home,
+    getPages: AppPages.routes,
+    translations: AppTranslations(),
+    locale: const Locale('en'),
+    fallbackLocale: const Locale('en'),
+  ));
 }
 
 class MyApp extends StatelessWidget {

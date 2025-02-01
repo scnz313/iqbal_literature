@@ -1,60 +1,48 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 class CustomSearchBar extends StatelessWidget {
   final TextEditingController controller;
-  final ValueChanged<String> onChanged;
-  final ValueChanged<String> onSubmitted;
-  final VoidCallback onFilterTap;
+  final Function(String) onChanged;
+  final VoidCallback? onClear;
+  final String? hintText;
 
   const CustomSearchBar({
     super.key,
     required this.controller,
     required this.onChanged,
-    required this.onSubmitted,
-    required this.onFilterTap,
+    this.onClear,
+    this.hintText,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: Theme.of(context).cardColor.withAlpha(200),
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
-      child: Row(
-        children: [
-          const SizedBox(width: 12),
-          IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => Navigator.pop(context),
+      child: TextField(
+        controller: controller,
+        onChanged: onChanged,
+        decoration: InputDecoration(
+          hintText: hintText ?? 'search'.tr,
+          border: InputBorder.none,
+          icon: Icon(
+            Icons.search,
+            color: Theme.of(context).iconTheme.color?.withAlpha(200),
           ),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              onChanged: onChanged,
-              onSubmitted: onSubmitted,
-              decoration: InputDecoration(
-                hintText: 'Search books, poems, and verses...',
-                border: InputBorder.none,
-                hintStyle: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-                ),
-              ),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed: onFilterTap,
-          ),
-          const SizedBox(width: 4),
-        ],
+          suffixIcon: controller.text.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    controller.clear();
+                    onClear?.call();
+                  },
+                )
+              : null,
+        ),
       ),
     );
   }

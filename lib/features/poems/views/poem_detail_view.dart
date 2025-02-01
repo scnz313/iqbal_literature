@@ -157,8 +157,22 @@ class PoemDetailView extends GetView<PoemController> {
             ),
           ],
         ),
-        body: SafeArea(
-          child: _buildPoemContent(context, poem),
+        body: SingleChildScrollView(
+          child: Column(
+            children: [
+              SafeArea(
+                child: _buildPoemContent(context, poem),
+              ),
+              IconButton(
+                icon: Obx(() => Icon(
+                  controller.isFavorite(poem) 
+                      ? Icons.favorite 
+                      : Icons.favorite_border,
+                )),
+                onPressed: () => controller.toggleFavorite(poem),
+              ),
+            ],
+          ),
         ),
       );
     } catch (e) {
@@ -241,6 +255,11 @@ class PoemDetailView extends GetView<PoemController> {
         ],
       ),
     );
+  }
+
+  Color _getOverlayColor(bool isDark) {
+    return (isDark ? Colors.black : Colors.white)
+        .withAlpha((0.7 * 255).round());
   }
 }
 

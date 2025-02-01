@@ -31,12 +31,15 @@ class SettingsController extends GetxController {
   String appVersion = '';
   final isNightModeScheduled = false.obs;
   final RxDouble fontScale = 1.0.obs;  // Change to RxDouble
+  final nightModeStartTime = TimeOfDay(hour: 20, minute: 0).obs;
+  final nightModeEndTime = TimeOfDay(hour: 6, minute: 0).obs;
 
   @override
   void onInit() {
     super.onInit();
     loadSettings();
     getAppVersion();
+    _loadNightModeSchedule();
     _analyticsService.logEvent(
       name: 'screen_view',
       parameters: {'screen': 'Settings'},
@@ -69,9 +72,11 @@ class SettingsController extends GetxController {
     try {
       currentLanguage.value = language;
       await _storageService.write('language', language);
+      
+      // Update the locale without changing text direction
       final locale = LanguageConstants.getLocaleFromLanguageCode(language);
+      await Get.updateLocale(locale);
       _localeProvider.setLocale(locale);
-      Get.updateLocale(locale);
       
       _analyticsService.logEvent(
         name: 'change_language',
@@ -81,7 +86,7 @@ class SettingsController extends GetxController {
       debugPrint('Error changing language: $e');
       Get.snackbar(
         'error'.tr,
-        'Failed to change language',
+        'Failed to change language'.tr,
         snackPosition: SnackPosition.BOTTOM,
       );
     }
@@ -159,20 +164,20 @@ class SettingsController extends GetxController {
   void showAbout() {
     Get.dialog(
       AlertDialog(
-        title: const Text('About'),
+        title: Text('about'.tr),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Version: $appVersion'),
+            Text('${'version'.tr}: $appVersion'),
             const SizedBox(height: 8),
-            const Text('Iqbal Literature App'),
+            Text('about_app'.tr),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Get.back(),
-            child: const Text('Close'),
+            child: Text('close'.tr),
           ),
         ],
       ),
@@ -198,8 +203,64 @@ class SettingsController extends GetxController {
 
   double get currentFontScale => FontScaleProvider.to.fontScale.value;
 
-  void enableNightModeSchedule(bool value) {
+  void _loadNightModeSchedule() {
+    isNightModeScheduled.value = _storageService.read<bool>('night_mode_scheduled') ?? false;
+    final startHour = _storageService.read<int>('night_mode_start_hour') ?? 20;
+    final startMinute = _storageService.read<int>('night_mode_start_minute') ?? 0;
+    final endHour = _storageService.read<int>('night_mode_end_hour') ?? 6;
+    final endMinute = _storageService.read<int>('night_mode_end_minute') ?? 0;
+
+    nightModeStartTime.value = TimeOfDay(hour: startHour, minute: startMinute);
+    nightModeEndTime.value = TimeOfDay(hour: endHour, minute: endMinute);
+
+    if (isNightModeScheduled.value) {
+      _checkAndApplyNightMode();
+    }
+  }
+
+  Future<void> enableNightModeSchedule(bool value) async {
     isNightModeScheduled.value = value;
-    // ...implementation...
+    await _storageService.write('night_mode_scheduled', value);
+    
+    if (value) {
+      _checkAndApplyNightMode();
+    } else {
+      // Revert to system theme when disabled
+      changeTheme('system');
+    }
+  }
+
+  Future<void> setNightModeStartTime(TimeOfDay time) async {
+    nightModeStartTime.value = time;
+    await _storageService.write('night_mode_start_hour', time.hour);
+    await _storageService.write('night_mode_start_minute', time.minute);
+    if (isNightModeScheduled.value) {
+      _checkAndApplyNightMode();
+    }
+  }
+
+  Future<void> setNightModeEndTime(TimeOfDay time) async {
+    nightModeEndTime.value = time;
+    await _storageService.write('night_mode_end_hour', time.hour);
+    await _storageService.write('night_mode_end_minute', time.minute);
+    if (isNightModeScheduled.value) {
+      _checkAndApplyNightMode();
+    }
+  }
+
+  void _checkAndApplyNightMode() {
+    final now = TimeOfDay.now();
+    final currentMinutes = now.hour * 60 + now.minute;
+    final startMinutes = nightModeStartTime.value.hour * 60 + nightModeStartTime.value.minute;
+    final endMinutes = nightModeEndTime.value.hour * 60 + nightModeEndTime.value.minute;
+
+    bool shouldBeDark;
+    if (startMinutes <= endMinutes) {
+      shouldBeDark = currentMinutes >= startMinutes && currentMinutes < endMinutes;
+    } else {
+      shouldBeDark = currentMinutes >= startMinutes || currentMinutes < endMinutes;
+    }
+
+    changeTheme(shouldBeDark ? 'dark' : 'light');
   }
 }

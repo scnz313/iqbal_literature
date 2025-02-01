@@ -9,6 +9,7 @@ class ThemeProvider extends GetxController {
   ThemeProvider(this._storage);
 
   final _themeMode = ThemeMode.system.obs;
+  final _textDirection = TextDirection.ltr.obs;
   
   @override
   void onInit() {
@@ -18,6 +19,7 @@ class ThemeProvider extends GetxController {
   
   ThemeMode get themeMode => _themeMode.value;
   bool get isDarkMode => _themeMode.value == ThemeMode.dark;
+  TextDirection get textDirection => _textDirection.value;
 
   ThemeData get lightTheme => AppTheme.lightTheme;
   ThemeData get darkTheme => AppTheme.darkTheme;
@@ -35,6 +37,10 @@ class ThemeProvider extends GetxController {
   void toggleTheme() {
     final newMode = isDarkMode ? ThemeMode.light : ThemeMode.dark;
     setThemeMode(newMode);
+  }
+
+  void updateTextDirection(TextDirection direction) {
+    _textDirection.value = direction;
   }
 
   Future<void> loadTheme() async {
@@ -65,5 +71,16 @@ class ThemeProvider extends GetxController {
     } catch (e) {
       debugPrint('Error saving theme: $e');
     }
+  }
+
+  ThemeData get currentTheme {
+    final baseTheme = isDarkMode ? darkTheme : lightTheme;
+    return baseTheme.copyWith(
+      textTheme: baseTheme.textTheme.apply(
+        fontFamily: _textDirection.value == TextDirection.rtl 
+            ? 'Urdu Font Name' // Replace with your Urdu font
+            : 'Default Font',
+      ),
+    );
   }
 }

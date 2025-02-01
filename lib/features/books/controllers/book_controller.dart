@@ -80,19 +80,22 @@ class BookController extends GetxController {
   }
 
   void onBookTap(Book book) {
-    debugPrint('📘 Book Selected:');
-    debugPrint('- ID: ${book.id} (${book.id.runtimeType})');
-    debugPrint('- Name: ${book.name}');
+    debugPrint('📚 Navigation request:');
+    debugPrint('- Book ID: ${book.id} (${book.id.runtimeType})');
+    debugPrint('- Book Name: ${book.name}');
+
+    if (book.id <= 0) {
+      debugPrint('❌ Invalid book ID');
+      return;
+    }
+
+    final args = {
+      'book_id': book.id,  // Must be int
+      'book_name': book.name,
+      'view_type': 'book_specific'  // Must match exactly
+    };
     
-    _analyticsService.logBookView(book.id, book.name);
-    
-    Get.toNamed(
-      Routes.bookPoems,
-      arguments: {
-        'book_id': book.id,  // Ensure this is an integer
-        'book_name': book.name,
-        'view_type': 'book_specific'
-      },
-    );
+    debugPrint('📤 Navigation arguments: $args');
+    Get.toNamed(Routes.bookPoems, arguments: args);
   }
 }
