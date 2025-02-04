@@ -14,6 +14,9 @@ import '../../data/repositories/user_repository.dart';
 import '../../data/services/storage_service.dart';
 import '../../data/services/analytics_service.dart';
 import '../../data/services/search_service.dart';
+import '../../services/api/deepseek_api_client.dart';
+import '../../services/cache/analysis_cache_service.dart';
+import '../../services/analysis/text_analysis_service.dart';
 
 // Providers
 import '../providers/theme_provider.dart';
@@ -40,6 +43,17 @@ class DependencyInjection {
       Get.put<FirebaseFirestore>(firestore, permanent: true);
       Get.put<FirebaseAnalytics>(analytics, permanent: true);
       Get.put<FirebaseStorage>(storage, permanent: true);
+
+      // Initialize Analysis Services - Move this before other services that might need it
+      final analysisCacheService = AnalysisCacheService();
+      await analysisCacheService.init();
+      Get.put<AnalysisCacheService>(analysisCacheService, permanent: true);
+
+      final deepseekClient = DeepSeekApiClient();
+      Get.put<DeepSeekApiClient>(deepseekClient, permanent: true);
+
+      final textAnalysisService = TextAnalysisService(deepseekClient, analysisCacheService);
+      Get.put<TextAnalysisService>(textAnalysisService, permanent: true);
 
       // 3. Initialize Services
       final storageService = StorageService(

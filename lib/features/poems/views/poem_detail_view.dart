@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';  // Add this import for Clipboard
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../controllers/poem_controller.dart';
 import '../../../data/models/poem/poem.dart';
+import '../../../services/api/openrouter_service.dart';  // Add this import
+import '../../../widgets/analysis/word_analysis_sheet.dart';  // Add this import
+import '../widgets/poem_stanza_widget.dart';
 
 class PoemDetailView extends GetView<PoemController> {
   const PoemDetailView({super.key});
@@ -14,7 +17,7 @@ class PoemDetailView extends GetView<PoemController> {
     
     try {
       if (args is Poem) {
-        poem = args;
+        poem = args; 
       } else if (args is Map<String, dynamic>) {
         poem = Poem.fromSearchResult(args);
       } else {
@@ -25,7 +28,7 @@ class PoemDetailView extends GetView<PoemController> {
 
       return Scaffold(
         appBar: AppBar(
-          title: Column(
+          title: Obx(() => Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
@@ -35,9 +38,9 @@ class PoemDetailView extends GetView<PoemController> {
                   Expanded(
                     child: Text(
                       poem.title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontFamily: 'JameelNooriNastaleeq',
-                        fontSize: 20,
+                        fontSize: controller.fontSize.value + 8, // reactive update
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -49,7 +52,7 @@ class PoemDetailView extends GetView<PoemController> {
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
-          ),
+          )),
           actions: [
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert),
@@ -69,12 +72,38 @@ class PoemDetailView extends GetView<PoemController> {
                       const SnackBar(content: Text('Poem copied to clipboard')),
                     );
                     break;
+                  case 'analyze':
+                    controller.analyzePoem(poem.cleanData);
+                    break;
                   case 'favorite':
                     controller.toggleFavorite(poem);
                     break;
                 }
               },
               itemBuilder: (context) => [
+                // Add favorite as first item
+                PopupMenuItem<String>(
+                  value: 'favorite',
+                  child: Row(
+                    children: [
+                      Obx(() => Icon(
+                        controller.isFavorite(poem) 
+                            ? Icons.favorite 
+                            : Icons.favorite_border,
+                        color: controller.isFavorite(poem) ? Colors.red : null,
+                        size: 20,
+                      )),
+                      const SizedBox(width: 12),
+                      Obx(() => Text(
+                        controller.isFavorite(poem) 
+                            ? 'Remove from Favorites' 
+                            : 'Add to Favorites',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      )),
+                    ],
+                  ),
+                ),
+                const PopupMenuDivider(),
                 _buildMenuItem(
                   'share',
                   Icons.share,
@@ -88,26 +117,26 @@ class PoemDetailView extends GetView<PoemController> {
                   context,
                 ),
                 const PopupMenuDivider(),
+                // Analyze option
                 PopupMenuItem<String>(
-                  value: 'favorite',
-                  child: Obx(() => Row(
+                  value: 'analyze',
+                  child: Row(
                     children: [
-                      Icon(
-                        controller.isFavorite(poem) 
-                            ? Icons.favorite 
-                            : Icons.favorite_border,
-                        color: controller.isFavorite(poem) ? Colors.red : null,
-                        size: 20,
+                      Obx(() => controller.isAnalyzing.value
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.analytics, size: 20)
                       ),
                       const SizedBox(width: 12),
                       Text(
-                        controller.isFavorite(poem) 
-                            ? 'Remove from Favorites' 
-                            : 'Add to Favorites',
+                        controller.isAnalyzing.value ? 'Analyzing...' : 'Analyze Poem',
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ],
-                  )),
+                  ),
                 ),
                 const PopupMenuDivider(),
                 PopupMenuItem<String>(
@@ -157,23 +186,11 @@ class PoemDetailView extends GetView<PoemController> {
             ),
           ],
         ),
-        body: SingleChildScrollView(
-          child: Column(
-            children: [
-              SafeArea(
-                child: _buildPoemContent(context, poem),
-              ),
-              IconButton(
-                icon: Obx(() => Icon(
-                  controller.isFavorite(poem) 
-                      ? Icons.favorite 
-                      : Icons.favorite_border,
-                )),
-                onPressed: () => controller.toggleFavorite(poem),
-              ),
-            ],
+        body: Obx(() => SingleChildScrollView(
+          child: SafeArea(
+            child: _buildPoemContent(context, poem), // now rebuilds on fontSize update
           ),
-        ),
+        )),
       );
     } catch (e) {
       debugPrint('Error loading poem: $e');
@@ -184,45 +201,133 @@ class PoemDetailView extends GetView<PoemController> {
   }
 
   Widget _buildPoemContent(BuildContext context, Poem poem) {
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 600),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 24.0,
-            vertical: 16.0,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Obx(() => SelectableText(
-                poem.title,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: 'JameelNooriNastaleeq',
-                  fontSize: controller.fontSize.value + 4,
-                  height: 2.0,
-                  fontWeight: FontWeight.bold,
+    final stanzas = _splitIntoStanzas(poem.cleanData);
+    var lineNumber = 1;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Title with animation
+          TweenAnimationBuilder<double>(
+            duration: const Duration(milliseconds: 500),
+            tween: Tween(begin: 0.0, end: 1.0),
+            builder: (context, value, child) {
+              return Opacity(
+                opacity: value,
+                child: Transform.translate(
+                  offset: Offset(0, 20 * (1 - value)),
+                  child: child,
                 ),
-                textDirection: TextDirection.rtl,
-              )),
-              const SizedBox(height: 24),
-              Obx(() => SelectableText(
-                poem.cleanData,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: 'JameelNooriNastaleeq',
-                  fontSize: controller.fontSize.value,
-                  height: 2.5,
-                  letterSpacing: 0.5,
-                ),
-                textDirection: TextDirection.rtl,
-              )),
-            ],
+              );
+            },
+            child: Text(
+              poem.title,
+              style: TextStyle(
+                fontFamily: 'JameelNooriNastaleeq',
+                fontSize: controller.fontSize.value + 8,
+                height: 2.0,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+              textDirection: TextDirection.rtl,
+            ),
           ),
-        ),
+
+          const SizedBox(height: 32),
+
+          // Analysis Results Section
+          Obx(() {
+            if (controller.showAnalysis.value) {
+              return Container(
+                margin: const EdgeInsets.symmetric(vertical: 16),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).cardColor,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Theme.of(context).primaryColor.withOpacity(0.1),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Analysis Results',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            color: Theme.of(context).primaryColor,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => controller.showAnalysis.value = false,
+                        ),
+                      ],
+                    ),
+                    const Divider(),
+                    SelectableText(
+                      controller.poemAnalysis.value,
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                  ],
+                ),
+              );
+            }
+            return const SizedBox.shrink();
+          }),
+
+          // Stanzas with line numbers
+          for (final stanza in stanzas) 
+            Builder(builder: (context) {
+              final currentLineNumber = lineNumber;
+              lineNumber += stanza.length;
+              return PoemStanzaWidget(
+                verses: stanza,
+                startLineNumber: currentLineNumber,
+                fontSize: controller.fontSize.value,
+                onWordTap: (word) => _showWordAnalysis(context, word),
+              );
+            }),
+        ],
       ),
     );
+  }
+
+  void _showWordAnalysis(BuildContext context, String word) async {
+    try {
+      final analysis = await OpenRouterService.analyzeWord(word);
+      if (context.mounted) {
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (context) => WordAnalysisSheet(analysis: analysis),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Get.snackbar(
+          'Error',
+          e.toString(),
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
+    }
+  }
+
+  List<List<String>> _splitIntoStanzas(String text) {
+    return text
+        .split('\n\n')
+        .map((stanza) => stanza
+            .split('\n')
+            .where((line) => line.trim().isNotEmpty)
+            .toList())
+        .where((stanza) => stanza.isNotEmpty)
+        .toList();
   }
 
   String _formatPoemText(String text) {

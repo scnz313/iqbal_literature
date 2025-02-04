@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async'; // Add this import
 import '../../../data/models/poem/poem.dart';
 import '../../../data/repositories/poem_repository.dart';
 import '../../../data/services/analytics_service.dart';
+import '../../../services/api/openrouter_service.dart';  // Add this import
 import '../../books/controllers/book_controller.dart';
 
 class PoemController extends GetxController {
@@ -23,6 +25,13 @@ class PoemController extends GetxController {
   static const double minFontSize = 16.0;
   static const double maxFontSize = 36.0;
 
+  // Add these properties at the top with other properties
+  final isAnalyzing = false.obs;
+  final showAnalysis = false.obs;
+  final poemAnalysis = ''.obs;
+
+  Timer? _debounce; // Add debounce timer
+
   @override
   void onInit() {
     super.onInit();
@@ -36,6 +45,12 @@ class PoemController extends GetxController {
     
     if (args == null) {
       debugPrint('❌ No arguments received - loading all poems');
+      loadAllPoems();  // Changed to load all poems
+      return;
+    }
+
+    if (args is! Map<String, dynamic>) {
+      debugPrint('❌ Arguments not a Map - loading all poems');
       loadAllPoems();  // Changed to load all poems
       return;
     }
@@ -239,14 +254,57 @@ class PoemController extends GetxController {
   void increaseFontSize() {
     if (fontSize.value < maxFontSize) {
       fontSize.value += 2.0;
-      _saveFontSize();
+      // Debounce calls to _saveFontSize to prevent lag
+      _debounce?.cancel();
+      _debounce = Timer(const Duration(milliseconds: 300), _saveFontSize);
     }
   }
 
   void decreaseFontSize() {
     if (fontSize.value > minFontSize) {
       fontSize.value -= 2.0;
-      _saveFontSize();
+      // Debounce calls to _saveFontSize to prevent lag
+      _debounce?.cancel();
+      _debounce = Timer(const Duration(milliseconds: 300), _saveFontSize);
+    }
+  }
+
+  Future<void> analyzePoem(String text) async {
+    if (isAnalyzing.value) return;
+    
+    try {
+      isAnalyzing.value = true;
+      
+      // Log analytics
+      _analyticsService.logEvent(
+        name: 'analyze_poem',
+        parameters: {'length': text.length},
+      );
+      
+      final analysis = await OpenRouterService.analyzePoem(text);
+      debugPrint('Analysis received: $analysis'); // Debug log
+      
+      poemAnalysis.value = analysis;
+      showAnalysis.value = true;
+      
+      Get.snackbar(
+        'Analysis Complete',
+        'Scroll down to view the analysis',
+        snackPosition: SnackPosition.TOP,
+        duration: const Duration(seconds: 2),
+      );
+    } catch (e) {
+      debugPrint('Analysis Error: $e');
+      Get.snackbar(
+        'Analysis Failed',
+        e.toString(),
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red.withOpacity(0.1),
+        colorText: Colors.red,
+        duration: const Duration(seconds: 3),
+      );
+    } finally {
+      isAnalyzing.value = false;
     }
   }
 }

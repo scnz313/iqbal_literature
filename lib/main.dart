@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'core/services/init_service.dart';
 import 'config/routes/app_pages.dart';
 import 'firebase_options.dart';
@@ -10,8 +11,12 @@ import 'core/localization/app_translations.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize Firebase first
+  // Initialize Hive before Firebase
+  await Hive.initFlutter();
+  
+  // Initialize Firebase
   await Firebase.initializeApp(
+    
     options: DefaultFirebaseOptions.currentPlatform,
   );
   
