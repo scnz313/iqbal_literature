@@ -9,9 +9,11 @@ import '../../features/settings/screens/settings_screen.dart';
 import '../../features/search/bindings/search_binding.dart';
 import '../../features/favorites/screens/favorites_screen.dart';
 import '../../features/favorites/bindings/favorites_binding.dart';
-import '../../features/poems/controllers/poem_controller.dart';
 import '../../data/repositories/poem_repository.dart';
 import '../../data/services/analytics_service.dart';
+import '../../features/poems/controllers/poem_controller.dart';  // Add this import
+import '../../features/historical_context/screens/timeline_screen.dart';
+import '../../features/historical_context/bindings/historical_context_binding.dart';
 
 class Routes {
   static const String home = '/';
@@ -22,6 +24,7 @@ class Routes {
   static const String settings = '/settings';
   static const String bookPoems = '/book-poems'; // Add this new route
   static const String favorites = '/favorites'; // Add this new route
+  static const String timeline = '/timeline'; // Add this new route
 }
 
 class AppPages {
@@ -42,12 +45,7 @@ class AppPages {
     GetPage(
       name: Routes.poems,
       page: () => const PoemsScreen(),
-      binding: BindingsBuilder(() {
-        Get.put(PoemController(
-          Get.find(),  // PoemRepository
-          Get.find(),  // AnalyticsService
-        ));
-      }),
+      binding: PoemBinding(),  // Use PoemBinding instead of BindingsBuilder
       transition: Transition.fadeIn,
     ),
     GetPage(
@@ -76,6 +74,13 @@ class AppPages {
       name: Routes.favorites,  // Add new route for favorites
       page: () => const FavoritesScreen(),
       binding: FavoritesBinding(),
+    ),
+    GetPage(
+      name: Routes.timeline,
+      page: () => const TimelineScreen(),
+      binding: HistoricalContextBinding(),
+      transition: Transition.rightToLeft,
+      transitionDuration: const Duration(milliseconds: 300),
     ),
   ];
 }

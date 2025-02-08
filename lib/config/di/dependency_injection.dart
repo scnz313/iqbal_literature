@@ -99,9 +99,15 @@ class DependencyInjection {
         fenix: true,
       );
 
-      Get.lazyPut<PoemController>(
-        () => PoemController(poemRepo, analyticsService),
-        fenix: true,
+      // Update PoemController registration - use put instead of lazyPut
+      Get.put<PoemController>(
+        PoemController(
+          Get.find<PoemRepository>(),
+          Get.find<AnalyticsService>(),
+          Get.find<TextAnalysisService>(),
+          Get.find<DeepSeekApiClient>(),
+        ),
+        permanent: true,  // Make it permanent
       );
 
       // Register SearchService before SearchController

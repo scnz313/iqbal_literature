@@ -8,12 +8,18 @@ class Poem extends Equatable {
   final String title;
   final String data;
   final int bookId;
+  final int? year;
+  final String? historicalContext;
+  final String? wikipediaUrl;
 
   const Poem({
     required this.id,
     required this.title,
     required this.data,
     required this.bookId,
+    this.year,
+    this.historicalContext,
+    this.wikipediaUrl,
   });
 
   factory Poem.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -53,6 +59,9 @@ class Poem extends Equatable {
         title: data['title']?.toString() ?? '',
         data: data['data']?.toString() ?? '',
         bookId: bookId,
+        year: data['year'] as int?,
+        historicalContext: data['historical_context'] as String?,
+        wikipediaUrl: data['wikipedia_url'] as String?,
       );
     } catch (e) {
       debugPrint('❌ Error parsing poem: $e');
@@ -66,6 +75,9 @@ class Poem extends Equatable {
       title: map['title'] ?? '',
       data: map['data'] ?? '',
       bookId: map['book_id'] ?? 0,
+      year: map['year'] as int?,
+      historicalContext: map['historical_context'] as String?,
+      wikipediaUrl: map['wikipedia_url'] as String?,
     );
   }
 
@@ -75,6 +87,9 @@ class Poem extends Equatable {
       title: args['title'] ?? '',
       data: args['content'] ?? '',
       bookId: 0,
+      year: args['year'] as int?,
+      historicalContext: args['historical_context'] as String?,
+      wikipediaUrl: args['wikipedia_url'] as String?,
     );
   }
 
@@ -84,6 +99,9 @@ class Poem extends Equatable {
       'title': title,
       'data': data,
       'book_id': bookId,
+      'year': year,
+      'historical_context': historicalContext,
+      'wikipedia_url': wikipediaUrl,
     };
   }
 
@@ -92,11 +110,17 @@ class Poem extends Equatable {
     int? bookId,
     String? title,
     String? data,
+    int? year,
+    String? historicalContext,
+    String? wikipediaUrl,
   }) => Poem(
     id: id ?? this.id,
     bookId: bookId ?? this.bookId,
     title: title ?? this.title,
     data: data ?? this.data,
+    year: year ?? this.year,
+    historicalContext: historicalContext ?? this.historicalContext,
+    wikipediaUrl: wikipediaUrl ?? this.wikipediaUrl,
   );
 
   String get cleanData {

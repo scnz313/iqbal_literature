@@ -18,6 +18,9 @@ import '../../features/search/controllers/search_controller.dart';
 import '../../features/settings/controllers/settings_controller.dart';
 import '../controllers/font_controller.dart';
 import '../../data/services/search_service.dart';
+import '../../services/analysis/text_analysis_service.dart';
+import '../../services/cache/analysis_cache_service.dart';  // Add this import
+import '../../services/api/deepseek_api_client.dart';  // Add this import
 
 class InitService extends GetxService {
   // Add static instance
@@ -25,43 +28,58 @@ class InitService extends GetxService {
   
   // Make init static
   static Future<void> init() async {
-    final initService = Get.put(InitService());
-    await initService._initialize();
+    try {
+      final initService = Get.put(InitService());
+      await initService._initialize();
+    } catch (e) {
+      debugPrint('InitService error: $e');
+      // Continue with partial initialization
+    }
   }
 
   Future<void> _initialize() async {
     try {
-      // Get Firebase instances
+      // 1. Initialize Firebase services
       final firestore = FirebaseFirestore.instance;
       final storage = FirebaseStorage.instance;
+      final analytics = FirebaseAnalytics.instance;
 
-      // Verify Firebase connection
-      try {
-        await firestore.terminate();
-        await firestore.clearPersistence();
-        debugPrint('✓ Firebase connection verified');
-      } catch (e) {
-        debugPrint('Firebase connection error: $e');
-      }
+      // 2. Initialize Analysis Services FIRST
+      final analysisCacheService = AnalysisCacheService();
+      await analysisCacheService.init();
+      Get.put<AnalysisCacheService>(analysisCacheService, permanent: true);
 
-      // Initialize services first
+      final deepseekClient = DeepSeekApiClient();
+      Get.put<DeepSeekApiClient>(deepseekClient, permanent: true);
+
+      final textAnalysisService = TextAnalysisService(deepseekClient, analysisCacheService);
+      Get.put<TextAnalysisService>(textAnalysisService, permanent: true);
+
+      // 3. Core Services
       final storageService = StorageService(
         prefs: await SharedPreferences.getInstance(),
-        storage: FirebaseStorage.instance,
+        storage: storage,
       );
       Get.put<StorageService>(storageService, permanent: true);
 
-      // Initialize Firebase services
-      final analytics = FirebaseAnalytics.instance;  // Add this line
-      
-      // Initialize Core Services
-      final analyticsService = AnalyticsService(analytics);  // Pass analytics instance
+      final analyticsService = AnalyticsService(analytics);
       Get.put<AnalyticsService>(analyticsService, permanent: true);
-      
-      // Initialize Repositories
-      Get.lazyPut(() => BookRepository(firestore));
-      Get.lazyPut(() => PoemRepository(firestore));
-      
+
+      // 4. Repositories
+      final poemRepo = Get.put<PoemRepository>(PoemRepository(firestore), permanent: true);
+      final bookRepo = Get.put<BookRepository>(BookRepository(firestore), permanent: true);
+
+      // 5. Controllers - Now all dependencies are available
+      await Get.putAsync<PoemController>(() async {
+        final controller = PoemController(
+          poemRepo,
+          analyticsService,
+          textAnalysisService,
+          deepseekClient, // Add this
+        );
+        return controller;
+      }, permanent: true);
+
       // Initialize Providers
       Get.put<ThemeProvider>(
         ThemeProvider(storageService),
@@ -102,14 +120,6 @@ class InitService extends GetxService {
         permanent: true,
       );
 
-      Get.put<PoemController>(
-        PoemController(
-          Get.find<PoemRepository>(),
-          Get.find<AnalyticsService>(),
-        ),
-        permanent: true,
-      );
-
       Get.put<SettingsController>(
         SettingsController(
           Get.find<StorageService>(),
@@ -125,7 +135,7 @@ class InitService extends GetxService {
       // Additional initialization can go here
       await _initializeDatabase();
     } catch (e) {
-      debugPrint('❌ Error during initialization: $e');
+      debugPrint('Initialization error: $e');
       rethrow;
     }
   }

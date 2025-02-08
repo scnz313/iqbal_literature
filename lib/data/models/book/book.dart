@@ -7,6 +7,7 @@ class Book {
   final String language;
   final String icon;
   final int orderBy;
+  final String? timePeriod; // Add this field
 
   Book({
     required this.id,
@@ -14,6 +15,7 @@ class Book {
     required this.language,
     required this.icon,
     required this.orderBy,
+    this.timePeriod, // Add this parameter
   });
 
   factory Book.fromMap(Map<String, dynamic> data) {
@@ -23,6 +25,7 @@ class Book {
       language: data['language']?.toString() ?? '',
       name: data['name']?.toString() ?? '',
       orderBy: (data['order_by'] as num?)?.toInt() ?? 0,
+      timePeriod: data['time_period']?.toString(), // Add this field
     );
   }
 
@@ -42,6 +45,7 @@ class Book {
         language: data['language']?.toString() ?? '',
         icon: data['icon']?.toString() ?? '',
         orderBy: (data['order_by'] as num?)?.toInt() ?? 0,
+        timePeriod: data['time_period']?.toString(), // Add this field
       );
     } catch (e) {
       debugPrint('❌ Error parsing book ${doc.id}: $e');
@@ -55,5 +59,6 @@ class Book {
     'language': language,
     'icon': icon,
     'orderBy': orderBy,
+    'time_period': timePeriod, // Add this field
   };
 }

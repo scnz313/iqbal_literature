@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import '../controllers/poem_controller.dart';
-import '../../../data/models/poem/poem.dart';
+import '../../../features/poems/models/poem.dart';
+import '../../../services/api/openrouter_service.dart';
 
 class PoemsScreen extends StatefulWidget {
   const PoemsScreen({super.key});
@@ -133,6 +134,7 @@ class PoemCard extends StatelessWidget {
       ),
       child: InkWell(
         onTap: () => Get.find<PoemController>().onPoemTap(poem),
+        onLongPress: () => _showOptions(context),
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -156,6 +158,154 @@ class PoemCard extends StatelessWidget {
                     letterSpacing: 0.5,
                   ),
                   textDirection: TextDirection.rtl,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showOptions(BuildContext context) {
+    debugPrint('Showing options for poem: ${poem.title}');
+    showModalBottomSheet(
+      context: context,
+      useRootNavigator: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.history_edu),
+              title: const Text('Historical Context'),
+              onTap: () {
+                Navigator.pop(context);
+                _showHistoricalContext(context);
+              },
+            ),
+            ListTile(
+              leading: Obx(() {
+                final isFav = Get.find<PoemController>().isFavorite(poem);
+                return Icon(
+                  isFav ? Icons.favorite : Icons.favorite_outline,
+                  color: isFav ? Colors.red : null,
+                );
+              }),
+              title: Obx(() {
+                final isFav = Get.find<PoemController>().isFavorite(poem);
+                return Text(isFav ? 'Remove from Favorites' : 'Add to Favorites');
+              }),
+              onTap: () {
+                Navigator.pop(context);
+                Get.find<PoemController>().toggleFavorite(poem);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showHistoricalContext(BuildContext context) {
+    debugPrint('📖 Requesting historical context for: ${poem.title}');
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.4,
+        maxChildSize: 0.9,
+        builder: (_, controller) => Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ListTile(
+                title: Text(
+                  'Historical Context',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                trailing: IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+              const Divider(),
+              Expanded(
+                child: FutureBuilder<Map<String, String>>(
+                  future: OpenRouterService.getHistoricalContext(poem.title, poem.cleanData),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(),
+                            SizedBox(height: 16),
+                            Text('Analyzing historical context...'),
+                          ],
+                        ),
+                      );
+                    }
+
+                    if (snapshot.hasError) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Text(
+                            'Error: Could not retrieve historical context',
+                            style: Theme.of(context).textTheme.bodyLarge,
+                          ),
+                        ),
+                      );
+                    }
+
+                    final data = snapshot.data ?? {
+                      'year': 'Unknown',
+                      'historicalContext': 'No historical context available',
+                      'significance': 'No significance data available'
+                    };
+
+                    return ListView(
+                      controller: controller,
+                      padding: const EdgeInsets.all(16),
+                      children: [
+                        Text(
+                          'Year: ${data['year']}',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Historical Context:',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          data['historicalContext'] ?? '',
+                          style: Theme.of(context).textTheme.bodyLarge,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Significance:',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          data['significance'] ?? '',
+                          style: Theme.of(context).textTheme.bodyLarge,
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ],

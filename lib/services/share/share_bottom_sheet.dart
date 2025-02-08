@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../data/models/poem/poem.dart';
+import '../../features/poems/models/poem.dart';
 import 'share_service.dart';
 
 class ShareBottomSheet extends StatelessWidget {
@@ -145,80 +145,87 @@ class _ShareBottomSheetContent extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 40,
-            height: 4,
-            margin: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.grey.withOpacity(0.3),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Text(
-              'Share Poem',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: SingleChildScrollView( // Add ScrollView to handle overflow
+          child: Column(
+            mainAxisSize: MainAxisSize.min, // Keep this to minimize height
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Drag handle
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-          ),
-          const Divider(height: 1),
-          _buildShareOption(
-            context: context,
-            icon: Icons.text_fields,
-            title: 'Share as Text',
-            subtitle: 'Share poem text to other apps',
-            onTap: () async {
-              try {
-                await ShareService.shareAsText(poem.title, poem.cleanData);
-                Navigator.pop(context);
-              } catch (e) {
-                Get.snackbar(
-                  'Error',
-                  'Failed to share text: $e',
-                  snackPosition: SnackPosition.BOTTOM,
-                );
-              }
-            },
-          ),
-          _buildShareOption(
-            context: context,
-            icon: Icons.image,
-            title: 'Share as Image',
-            subtitle: 'Create and share a beautiful image',
-            onTap: () async {
-              try {
-                final imageWidget = Material(
-                  color: Colors.white,
-                  child: _buildPreviewWidget(),
-                );
+              const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Text(
+                  'Share Poem',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const Divider(height: 1),
+              _buildShareOption(
+                context: context,
+                icon: Icons.text_fields,
+                title: 'Share as Text',
+                subtitle: 'Share poem text to other apps',
+                onTap: () async {
+                  try {
+                    await ShareService.shareAsText(poem.title, poem.cleanData);
+                    Navigator.pop(context);
+                  } catch (e) {
+                    Get.snackbar(
+                      'Error',
+                      'Failed to share text: $e',
+                      snackPosition: SnackPosition.BOTTOM,
+                    );
+                  }
+                },
+              ),
+              _buildShareOption(
+                context: context,
+                icon: Icons.image,
+                title: 'Share as Image',
+                subtitle: 'Create and share a beautiful image',
+                onTap: () async {
+                  try {
+                    final imageWidget = Material(
+                      color: Colors.white,
+                      child: _buildPreviewWidget(),
+                    );
 
-                if (context.mounted) {
-                  await ShareService.shareAsImage(
-                    context,
-                    imageWidget,
-                    'poem_${poem.id}',
-                  );
-                  Navigator.pop(context);
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  Navigator.pop(context);
-                  Get.snackbar(
-                    'Error',
-                    'Failed to share image: $e',
-                    snackPosition: SnackPosition.BOTTOM,
-                  );
-                }
-              }
-            },
+                    if (context.mounted) {
+                      await ShareService.shareAsImage(
+                        context,
+                        imageWidget,
+                        'poem_${poem.id}',
+                      );
+                      Navigator.pop(context);
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      Get.snackbar(
+                        'Error',
+                        'Failed to share image: $e',
+                        snackPosition: SnackPosition.BOTTOM,
+                      );
+                    }
+                  }
+                },
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

@@ -104,11 +104,20 @@ class BookController extends GetxController {
       arguments: args,
       binding: BindingsBuilder(() {
         Get.put(PoemController(
+          Get.find(),  // BookRepository
           Get.find(),  // PoemRepository
           Get.find(),  // AnalyticsService
+          Get.find(),  // deepseekapi
         ));
       }),
     );
+  }
+
+  String getHistoricalContext(int bookId) {
+    // TODO: Replace this with actual historical context from your data source
+    return 'This book was written during a significant period in Iqbal\'s life...\n\n'
+           'Historical and social context of the time period...\n\n'
+           'Major influences and events that shaped this work...';
   }
 
 }

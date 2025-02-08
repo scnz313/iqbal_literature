@@ -7,37 +7,50 @@ import 'config/routes/app_pages.dart';
 import 'firebase_options.dart';
 import 'config/providers/theme_provider.dart';
 import 'core/localization/app_translations.dart';
+import 'services/cache/cache_service.dart';
+import 'services/api/openrouter_service.dart';
+import 'services/api/gemini_api.dart'; // Add Gemini API import
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize Hive before Firebase
-  await Hive.initFlutter();
-  
-  // Initialize Firebase
-  await Firebase.initializeApp(
+  try {
+    // Initialize Gemini first
+    GeminiAPI.configure('AIzaSyDBZEDNSEmfoLoiY54sSr0RTNhTZPoEh-c');
     
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  
-  // Initialize app services
-  await InitService.init();
-  
-  // Initialize theme provider
-  final themeProvider = Get.put(ThemeProvider(Get.find()));
-  
-  runApp(GetMaterialApp(
-    title: 'app_name'.tr,
-    debugShowCheckedModeBanner: false,
-    theme: themeProvider.lightTheme,
-    darkTheme: themeProvider.darkTheme,
-    themeMode: themeProvider.themeMode,
-    initialRoute: Routes.home,
-    getPages: AppPages.routes,
-    translations: AppTranslations(),
-    locale: const Locale('en'),
-    fallbackLocale: const Locale('en'),
-  ));
+    // Initialize services
+    await CacheService.init();
+    await OpenRouterService.init();
+    
+    // Initialize Hive before Firebase
+    await Hive.initFlutter();
+    
+    // Initialize Firebase
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    
+    // Initialize app services
+    await InitService.init();
+    
+    // Initialize theme provider
+    final themeProvider = Get.put(ThemeProvider(Get.find()));
+    
+    runApp(GetMaterialApp(
+      title: 'app_name'.tr,
+      debugShowCheckedModeBanner: false,
+      theme: themeProvider.lightTheme,
+      darkTheme: themeProvider.darkTheme,
+      themeMode: themeProvider.themeMode,
+      initialRoute: Routes.home,
+      getPages: AppPages.routes,
+      translations: AppTranslations(),
+      locale: const Locale('en'),
+      fallbackLocale: const Locale('en'),
+    ));
+  } catch (e) {
+    debugPrint('Error during initialization: $e');
+  }
 }
 
 class MyApp extends StatelessWidget {

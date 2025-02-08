@@ -1,8 +1,9 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/poem/poem.dart';
+import '../../features/poems/models/poem.dart';
 import '../models/line/line.dart';
+import '../historical_context_data.dart';
 
 class PoemRepository {
   final FirebaseFirestore _firestore;
@@ -162,6 +163,15 @@ class PoemRepository {
     } catch (e) {
       debugPrint('❌ Error: $e');
       return [];
+    }
+  }
+
+  Future<Map<String, dynamic>?> getHistoricalContext(int poemId) async {
+    try {
+      return poemHistoricalContexts[poemId];
+    } catch (e) {
+      debugPrint('Error fetching historical context: $e');
+      return null;
     }
   }
 

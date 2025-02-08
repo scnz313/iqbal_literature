@@ -44,6 +44,7 @@ android {
         multiDexEnabled true
     }
 
+    // Remove unnecessary build variants and keep only what's needed
     buildTypes {
         release {
             signingConfig signingConfigs.debug

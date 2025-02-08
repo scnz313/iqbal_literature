@@ -8,7 +8,7 @@ import '../../../data/models/book/book.dart';
 import '../../../data/repositories/book_repository.dart';
 import '../../../data/repositories/poem_repository.dart';
 import '../../../data/services/analytics_service.dart';
-import '../../../data/models/poem/poem.dart';
+import '../../../features/poems/models/poem.dart';
 
 class HomeController extends GetxController {
   final BookRepository _bookRepository;

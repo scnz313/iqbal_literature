@@ -3,17 +3,29 @@ import 'package:get/get.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async'; // Add this import
-import '../../../data/models/poem/poem.dart';
+import 'dart:convert'; // Add this import
+import '../../../features/poems/models/poem.dart';
 import '../../../data/repositories/poem_repository.dart';
 import '../../../data/services/analytics_service.dart';
 import '../../../services/api/openrouter_service.dart';  // Add this import
+import '../../../services/analysis/text_analysis_service.dart';  // Update import
+import '../../../services/share/share_bottom_sheet.dart';  // Add this import
 import '../../books/controllers/book_controller.dart';
+import '../../../services/analysis/analysis_bottom_sheet.dart';
+import '../../../services/api/deepseek_api_client.dart';  // Update import
 
 class PoemController extends GetxController {
   final PoemRepository _poemRepository;
   final AnalyticsService _analyticsService;
+  final TextAnalysisService _textAnalysisService;  // Add this
+  final DeepSeekApiClient _deepSeekClient;
 
-  PoemController(this._poemRepository, this._analyticsService);
+  PoemController(
+    this._poemRepository, 
+    this._analyticsService,
+    this._textAnalysisService,  // Add this parameter
+    this._deepSeekClient,  // Add this parameter
+  );
 
   final RxList<Poem> poems = <Poem>[].obs;
   final RxString currentBookName = ''.obs;
@@ -45,12 +57,6 @@ class PoemController extends GetxController {
     
     if (args == null) {
       debugPrint('❌ No arguments received - loading all poems');
-      loadAllPoems();  // Changed to load all poems
-      return;
-    }
-
-    if (args is! Map<String, dynamic>) {
-      debugPrint('❌ Arguments not a Map - loading all poems');
       loadAllPoems();  // Changed to load all poems
       return;
     }
@@ -240,7 +246,9 @@ class PoemController extends GetxController {
   }
 
   void sharePoem(Poem poem) {
-    Share.share('${poem.title}\n\n${poem.data}\n\nFrom Iqbal Literature App');
+    if (Get.context != null) {
+      ShareBottomSheet.show(Get.context!, poem);
+    }
   }
 
   Future<void> refreshPoems() async {
@@ -270,39 +278,108 @@ class PoemController extends GetxController {
   }
 
   Future<void> analyzePoem(String text) async {
-    if (isAnalyzing.value) return;
-    
     try {
       isAnalyzing.value = true;
-      
-      // Log analytics
-      _analyticsService.logEvent(
-        name: 'analyze_poem',
-        parameters: {'length': text.length},
-      );
-      
-      final analysis = await OpenRouterService.analyzePoem(text);
-      debugPrint('Analysis received: $analysis'); // Debug log
-      
-      poemAnalysis.value = analysis;
-      showAnalysis.value = true;
-      
-      Get.snackbar(
-        'Analysis Complete',
-        'Scroll down to view the analysis',
-        snackPosition: SnackPosition.TOP,
-        duration: const Duration(seconds: 2),
-      );
+
+      // Show bottom sheet before starting analysis
+      if (Get.context != null) {
+        AnalysisBottomSheet.show(
+          Get.context!, 
+          'Poem Analysis',
+          Future(() async {
+            try {
+              final analysis = await OpenRouterService.analyzePoem(text);
+              return '''
+Summary:
+${analysis['summary']}
+
+Themes:
+${analysis['themes']}
+
+Historical Context:
+${analysis['context']}
+
+Analysis:
+${analysis['analysis']}''';
+            } catch (e) {
+              debugPrint('❌ Analysis error: $e');
+              throw Exception('Failed to analyze poem. Please try again.');
+            }
+          }),
+        );
+      }
+
     } catch (e) {
-      debugPrint('Analysis Error: $e');
+      debugPrint('❌ Analysis error: $e');
       Get.snackbar(
-        'Analysis Failed',
-        e.toString(),
+        'Error',
+        'Failed to analyze poem. Please try again.',
         snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red.withOpacity(0.1),
-        colorText: Colors.red,
-        duration: const Duration(seconds: 3),
       );
+    } finally {
+      isAnalyzing.value = false;
+    }
+  }
+
+  void showHistoricalContext(BuildContext context, Poem poem) {
+    debugPrint('Showing historical context for poem: ${poem.title}');
+    _analyticsService.logEvent(
+      name: 'view_historical_context',
+      parameters: {'poem_id': poem.id},
+    );
+    
+    // Show the historical context bottom sheet
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.4,
+        maxChildSize: 0.9,
+        builder: (_, controller) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: const Center(child: Text('Historical Context')),
+        ),
+      ),
+    );
+  }
+
+  Future<Map<String, dynamic>?> getHistoricalContext(int poemId) async {
+    try {
+      debugPrint('🔄 Getting historical context for poem ID: $poemId');
+      isAnalyzing.value = true;
+      
+      final poem = poems.firstWhere((p) => p.id == poemId);
+      debugPrint('📖 Found poem: ${poem.title}');
+
+      // First try repository for stored context
+      final storedContext = await _poemRepository.getHistoricalContext(poemId);
+      if (storedContext != null) {
+        debugPrint('📚 Using stored historical context');
+        return storedContext;
+      }
+
+      // If no stored context, use DeepSeek API
+      debugPrint('🤖 Requesting AI analysis...');
+      final aiResponse = await _deepSeekClient.getHistoricalContext(
+        poem.title,
+        poem.cleanData,
+      );
+
+      debugPrint('✅ Received analysis');
+      return {
+        'historicalContext': aiResponse,
+      };
+
+    } catch (e) {
+      debugPrint('❌ Error getting historical context: $e');
+      return {
+        'historicalContext': 'Unable to analyze this poem right now. Please try again later.',
+      };
     } finally {
       isAnalyzing.value = false;
     }

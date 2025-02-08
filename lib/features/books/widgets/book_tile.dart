@@ -73,9 +73,22 @@ class BookTile extends StatelessWidget {
   void _showBookOptions(BuildContext context, BookController controller) {
     showModalBottomSheet(
       context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (context) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Timeline option
+          ListTile(
+            leading: const Icon(Icons.timeline),
+            title: const Text('Historical Timeline'),
+            onTap: () {
+              Navigator.pop(context);
+              _showTimeline(context);
+            },
+          ),
+          // Favorites option
           ListTile(
             leading: Icon(
               controller.isFavorite(book) 
@@ -93,6 +106,7 @@ class BookTile extends StatelessWidget {
               Navigator.pop(context);
             },
           ),
+          // Share option
           ListTile(
             leading: const Icon(Icons.share),
             title: const Text('Share'),
@@ -104,5 +118,13 @@ class BookTile extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  void _showTimeline(BuildContext context) {
+    Get.toNamed('/timeline', arguments: {
+      'book_id': book.id,
+      'book_name': book.name,
+      'time_period': book.timePeriod,
+    });
   }
 }

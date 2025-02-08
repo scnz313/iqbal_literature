@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:collection/collection.dart';
 import '../models/book/book.dart';
-import '../models/poem/poem.dart';
+import '../../features/poems/models/poem.dart';
 
 class BookRepository {
   final FirebaseFirestore _firestore;
