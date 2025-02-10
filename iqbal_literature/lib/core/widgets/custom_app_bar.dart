@@ -32,6 +32,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
         ),
       ),
       centerTitle: true,
+      automaticallyImplyLeading: showBackButton,  // Control back button visibility
       leading: showBackButton
           ? IconButton(
               icon: const Icon(Icons.arrow_back_ios),

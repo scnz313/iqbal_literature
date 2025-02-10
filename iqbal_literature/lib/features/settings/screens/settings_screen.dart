@@ -13,6 +13,7 @@ class SettingsScreen extends GetView<SettingsController> {
     return Scaffold(
       appBar: CustomAppBar(
         title: 'settings'.tr,
+        showBackButton: false,  // Hide the back button
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),

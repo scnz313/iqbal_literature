@@ -16,187 +16,276 @@ class SearchScreen extends GetView<app_search.SearchController> {
       body: SafeArea(
         child: Column(
           children: [
-            // Search Header
+            // Search header
             Container(
               padding: const EdgeInsets.all(16.0),
-              decoration: BoxDecoration(
-                color: theme.primaryColor.withOpacity(0.05),
-                border: Border(
-                  bottom: BorderSide(
-                    color: theme.dividerColor,
-                    width: 1,
-                  ),
-                ),
-              ),
               child: Column(
                 children: [
-                  // Search Bar
-                  Container(
-                    height: 56,
-                    decoration: BoxDecoration(
-                      color: theme.cardColor,
-                      borderRadius: BorderRadius.circular(28),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 10,
-                          offset: const Offset(0, 2),
+                  // Search bar and voice button
+                  Row(
+                    children: [
+                      Expanded(child: _buildSearchBar(context)),
+                      // Voice button with Obx
+                      Obx(() => IconButton(
+                        icon: Icon(
+                          controller.isListening.value ? Icons.mic : Icons.mic_none,
                         ),
-                      ],
-                    ),
-                    child: Row(
+                        onPressed: controller.startVoiceSearch,
+                      )),
+                    ],
+                  ),
+                  
+                  // Filter chips
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Obx(() => Row(
                       children: [
-                        // Back Button
-                        Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            borderRadius: const BorderRadius.horizontal(
-                              left: Radius.circular(28),
-                            ),
-                            onTap: () => Get.back(),
-                            child: const SizedBox(
-                              width: 48,
-                              height: 56,
-                              child: Icon(Icons.arrow_back),
-                            ),
-                          ),
-                        ),
-                        // Search TextField
-                        Expanded(
-                          child: Row(
-                            children: [
-                              // English text field (LTR)
-                              Expanded(
-                                child: TextField(
-                                  controller: controller.searchController,
-                                  onChanged: controller.onSearchChanged,
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: theme.textTheme.bodyLarge?.color,
-                                  ),
-                                  textDirection: TextDirection.ltr,
-                                  decoration: InputDecoration(
-                                    hintText: 'Search in English...',
-                                    hintStyle: TextStyle(
-                                      color: theme.hintColor,
-                                    ),
-                                    border: InputBorder.none,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 12,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              // Vertical divider
-                              Container(
-                                height: 24,
-                                width: 1,
-                                color: theme.dividerColor,
-                              ),
-                              // Urdu text field (RTL)
-                              Expanded(
-                                child: TextField(
-                                  controller: controller.urduSearchController,
-                                  onChanged: controller.onSearchChanged,
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: theme.textTheme.bodyLarge?.color,
-                                    fontFamily: 'JameelNooriNastaleeq',
-                                  ),
-                                  textDirection: TextDirection.rtl,
-                                  decoration: InputDecoration(
-                                    hintText: 'اردو میں تلاش کریں...',
-                                    hintStyle: TextStyle(
-                                      color: theme.hintColor,
-                                      fontFamily: 'JameelNooriNastaleeq',
-                                    ),
-                                    border: InputBorder.none,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 12,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        // Clear/Loading Button
-                        Obx(() => Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            borderRadius: const BorderRadius.horizontal(
-                              right: Radius.circular(28),
-                            ),
-                            onTap: controller.isLoading.value 
-                                ? null 
-                                : controller.clearSearch,
-                            child: SizedBox(
-                              width: 48,
-                              height: 56,
-                              child: controller.isLoading.value
-                                  ? const Padding(
-                                      padding: EdgeInsets.all(14),
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : Icon(
-                                      Icons.clear,
-                                      color: theme.hintColor,
-                                    ),
-                            ),
-                          ),
-                        )),
+                        _buildFilterChip('All', null),
+                        _buildFilterChip('Books', SearchResultType.book),
+                        _buildFilterChip('Poems', SearchResultType.poem),
+                        _buildFilterChip('Verses', SearchResultType.line),
                       ],
-                    ),
+                    )),
                   ),
                 ],
               ),
             ),
-            // Search Results
+
+            // Main content area
             Expanded(
               child: Obx(() {
-                if (controller.searchResults.isEmpty && 
-                    controller.searchController.text.isNotEmpty && 
-                    !controller.isLoading.value) {
-                  return Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.search_off,
-                          size: 64,
-                          color: theme.hintColor,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'کوئی نتیجہ نہیں ملا',
-                          style: TextStyle(
-                            fontSize: 18,
-                            color: theme.hintColor,
-                            fontFamily: 'JameelNooriNastaleeq',
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
+                final query = controller.searchQuery;
+                final isLoading = controller.isLoading.value;
+                final results = controller.searchResults;
+
+                // Show recent searches when no search is active
+                if (query.isEmpty) {
+                  return _buildRecentSearches(context);
                 }
 
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: controller.searchResults.length,
-                  itemBuilder: (context, index) {
-                    return SearchResultTile(
-                      result: controller.searchResults[index],
-                    );
-                  },
-                );
+                // Show loading or search results
+                if (isLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (results.isEmpty) {
+                  return _buildEmptyState(context);
+                }
+
+                return _buildSearchResults(context);
               }),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(String label, SearchResultType? type) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: FilterChip(
+        label: Text(label),
+        selected: controller.selectedFilter.value == type,
+        onSelected: (_) => controller.setFilter(type),
+        backgroundColor: Colors.transparent,
+        shape: StadiumBorder(
+          side: BorderSide(
+            color: Theme.of(Get.context!).colorScheme.primary.withOpacity(0.5),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecentSearches(BuildContext context) {
+    return Obx(() {
+      final searches = controller.recentSearches;
+      if (searches.isEmpty) {
+        return const Center(child: Text('No recent searches'));
+      }
+
+      return ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.history),
+              const SizedBox(width: 8),
+              const Text('Recent Searches'),
+              const Spacer(),
+              TextButton(
+                onPressed: controller.clearRecentSearches,
+                child: const Text('Clear All'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: searches.map((search) => _buildSearchChip(search)).toList(),
+          ),
+        ],
+      );
+    });
+  }
+
+  Widget _buildSearchChip(String search) {
+    final isUrdu = search.contains(RegExp(r'[\u0600-\u06FF]'));
+    return InkWell(
+      onTap: () => controller.applyRecentSearch(search),
+      child: Chip(
+        label: Text(
+          search,
+          style: TextStyle(
+            fontFamily: isUrdu ? 'JameelNooriNastaleeq' : null,
+            fontSize: isUrdu ? 18 : 14,
+          ),
+        ),
+        deleteIcon: const Icon(Icons.close, size: 16),
+        onDeleted: () => controller.removeRecentSearch(search),
+      ),
+    );
+  }
+
+  Widget _buildSearchResults(BuildContext context) {
+    return ListView(
+      controller: controller.scrollController,
+      children: [
+        // Books section
+        if (controller.bookResults.isNotEmpty)
+          _buildResultSection('Books', controller.bookResults),
+          
+        // Poems section
+        if (controller.poemResults.isNotEmpty)
+          _buildResultSection('Poems', controller.poemResults),
+          
+        // Verses section
+        if (controller.verseResults.isNotEmpty)
+          _buildResultSection('Verses', controller.verseResults),
+      ],
+    );
+  }
+
+  Widget _buildResultSection(String title, List<SearchResult> results) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(
+            title,
+            style: Theme.of(Get.context!).textTheme.titleMedium,
+          ),
+        ),
+        ...results.map((result) => SearchResultTile(result: result)),
+      ],
+    );
+  }
+
+  Widget _buildSearchBar(BuildContext context) {
+    return Container(
+      height: 56,
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).shadowColor.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 16),
+          // Search icon
+          Icon(Icons.search, color: Theme.of(context).hintColor),
+          const SizedBox(width: 12),
+          // Search fields
+          Expanded(
+            child: Row(
+              children: [
+                // English search field
+                Expanded(
+                  child: TextField(
+                    controller: controller.searchController,
+                    onChanged: controller.onSearchChanged,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Search in English...',
+                      hintStyle: TextStyle(color: Theme.of(context).hintColor),
+                      border: InputBorder.none,
+                    ),
+                  ),
+                ),
+                // Vertical divider with padding
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: VerticalDivider(
+                    color: Theme.of(context).dividerColor,
+                    width: 32,
+                  ),
+                ),
+                // Urdu search field
+                Expanded(
+                  child: TextField(
+                    controller: controller.urduSearchController,
+                    onChanged: controller.onSearchChanged,
+                    textDirection: TextDirection.rtl,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontFamily: 'JameelNooriNastaleeq',
+                      color: Theme.of(context).textTheme.bodyLarge?.color,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'اردو میں تلاش...',
+                      hintStyle: TextStyle(
+                        color: Theme.of(context).hintColor,
+                        fontFamily: 'JameelNooriNastaleeq',
+                      ),
+                      border: InputBorder.none,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.search_off_rounded,
+            size: 64,
+            color: Theme.of(context).hintColor.withOpacity(0.5),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No results found',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: Theme.of(context).hintColor,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Try different keywords or search in Urdu',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).hintColor,
+            ),
+          ),
+        ],
       ),
     );
   }

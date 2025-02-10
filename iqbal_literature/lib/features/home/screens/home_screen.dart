@@ -17,11 +17,11 @@ class HomeScreen extends GetView<HomeController> {
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.favorite_outline),
+            icon: const Icon(Icons.bookmark_outline),  // Changed from favorite_outline to bookmark_outline
             onPressed: () {
               Get.toNamed('/favorites');
             },
-            tooltip: 'Favorites',
+            tooltip: 'Bookmarks',  // Updated tooltip text
           ),
         ],
       ),
