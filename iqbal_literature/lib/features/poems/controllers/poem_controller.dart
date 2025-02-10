@@ -393,10 +393,19 @@ class PoemController extends GetxController {
       // Cache the result for future use
       _poemRepository.saveHistoricalContext(poemId, result);
       
+      // Return all sections from the analysis
       return {
         'year': result['year'] ?? 'Unknown',
         'historicalContext': result['historicalContext'] ?? 'No historical context available',
-        'significance': result['significance'] ?? 'No significance data available'
+        'significance': result['significance'] ?? 'No significance data available',
+        'culturalImportance': result['culturalImportance'],
+        'religiousThemes': result['religiousThemes'],
+        'politicalMessages': result['politicalMessages'],
+        'specificAnalysis': result['factualInformation'],
+        'imagery': result['imagery'],
+        'metaphor': result['metaphor'],
+        'symbolism': result['symbolism'],
+        'theme': result['theme'],
       };
 
     } catch (e) {

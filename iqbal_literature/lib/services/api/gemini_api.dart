@@ -518,56 +518,60 @@ Provide specific details for each section. Avoid generic responses.''';
       for (final line in cleanedResponse.split('\n')) {
         final trimmed = line.trim();
         
-        if (trimmed.isEmpty) continue;
-
-        if (trimmed.startsWith('YEAR:')) {
-          currentSection = 'year';
-          continue;
-        } else if (trimmed.startsWith('HISTORICAL_CONTEXT:')) {
+        if (trimmed.isEmpty) {
           if (currentSection.isNotEmpty) {
             result[currentSection] = contentBuffer.toString().trim();
             contentBuffer.clear();
           }
-          currentSection = 'historicalContext';
-          continue;
-        } else if (trimmed.startsWith('SIGNIFICANCE:')) {
-          if (currentSection.isNotEmpty) {
-            result[currentSection] = contentBuffer.toString().trim();
-            contentBuffer.clear();
-          }
-          currentSection = 'significance';
-          continue;
-        } else if (trimmed.startsWith('Cultural Importance:')) {
-          if (currentSection.isNotEmpty) {
-            result[currentSection] = contentBuffer.toString().trim();
-            contentBuffer.clear();
-          }
-          currentSection = 'culturalImportance';
-          continue;
-        } else if (trimmed.startsWith('Religious Themes:')) {
-          if (currentSection.isNotEmpty) {
-            result[currentSection] = contentBuffer.toString().trim();
-            contentBuffer.clear();
-          }
-          currentSection = 'religiousThemes';
-          continue;
-        } else if (trimmed.startsWith('Political Messages:')) {
-          if (currentSection.isNotEmpty) {
-            result[currentSection] = contentBuffer.toString().trim();
-            contentBuffer.clear();
-          }
-          currentSection = 'politicalMessages';
-          continue;
-        } else if (trimmed.startsWith('Specific Factual Information:')) {
-          if (currentSection.isNotEmpty) {
-            result[currentSection] = contentBuffer.toString().trim();
-            contentBuffer.clear();
-          }
-          currentSection = 'factualInformation';
           continue;
         }
 
-        if (currentSection.isNotEmpty) {
+        // Update section detection logic
+        if (trimmed.startsWith('YEAR:')) {
+          _updateSection(result, currentSection, contentBuffer.toString());
+          currentSection = 'year';
+          contentBuffer.clear();
+        } else if (trimmed.startsWith('HISTORICAL_CONTEXT:')) {
+          _updateSection(result, currentSection, contentBuffer.toString());
+          currentSection = 'historicalContext';
+          contentBuffer.clear();
+        } else if (trimmed.startsWith('SIGNIFICANCE:')) {
+          _updateSection(result, currentSection, contentBuffer.toString());
+          currentSection = 'significance';
+          contentBuffer.clear();
+        } else if (trimmed.startsWith('Cultural Importance:')) {
+          _updateSection(result, currentSection, contentBuffer.toString());
+          currentSection = 'culturalImportance';
+          contentBuffer.clear();
+        } else if (trimmed.startsWith('Religious Themes:')) {
+          _updateSection(result, currentSection, contentBuffer.toString());
+          currentSection = 'religiousThemes';
+          contentBuffer.clear();
+        } else if (trimmed.startsWith('Political Messages:')) {
+          _updateSection(result, currentSection, contentBuffer.toString());
+          currentSection = 'politicalMessages';
+          contentBuffer.clear();
+        } else if (trimmed.startsWith('Specific')) {
+          _updateSection(result, currentSection, contentBuffer.toString());
+          currentSection = 'factualInformation';
+          contentBuffer.clear();
+        } else if (trimmed.startsWith('Imagery:')) {
+          _updateSection(result, currentSection, contentBuffer.toString());
+          currentSection = 'imagery';
+          contentBuffer.clear();
+        } else if (trimmed.startsWith('Metaphor:')) {
+          _updateSection(result, currentSection, contentBuffer.toString());
+          currentSection = 'metaphor';
+          contentBuffer.clear();
+        } else if (trimmed.startsWith('Symbolism:')) {
+          _updateSection(result, currentSection, contentBuffer.toString());
+          currentSection = 'symbolism';
+          contentBuffer.clear();
+        } else if (trimmed.startsWith('Theme:')) {
+          _updateSection(result, currentSection, contentBuffer.toString());
+          currentSection = 'theme';
+          contentBuffer.clear();
+        } else if (currentSection.isNotEmpty) {
           if (contentBuffer.isNotEmpty) {
             contentBuffer.write('\n');
           }
@@ -575,7 +579,7 @@ Provide specific details for each section. Avoid generic responses.''';
         }
       }
 
-      // Add final section
+      // Add final section content
       if (currentSection.isNotEmpty) {
         result[currentSection] = contentBuffer.toString().trim();
       }

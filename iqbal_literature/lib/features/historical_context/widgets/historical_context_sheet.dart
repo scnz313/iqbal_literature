@@ -110,6 +110,7 @@ class HistoricalContextSheet extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        // Basic sections
         _buildSection(context, 'Year', data.year),
         const SizedBox(height: 24),
         _buildExpandableSection(
@@ -123,6 +124,52 @@ class HistoricalContextSheet extends StatelessWidget {
           'Significance',
           data.significance,
         ),
+        const SizedBox(height: 24),
+
+        // Additional sections from API
+        if (data.culturalImportance?.isNotEmpty ?? false)
+          _buildExpandableSection(
+            context,
+            'Cultural Importance',
+            data.culturalImportance!,
+          ),
+        if (data.religiousThemes?.isNotEmpty ?? false)
+          _buildExpandableSection(
+            context,
+            'Religious Themes',
+            data.religiousThemes!,
+          ),
+        if (data.politicalMessages?.isNotEmpty ?? false)
+          _buildExpandableSection(
+            context,
+            'Political Messages',
+            data.politicalMessages!,
+          ),
+        if (data.imagery?.isNotEmpty ?? false)
+          _buildExpandableSection(
+            context,
+            'Imagery',
+            data.imagery!,
+          ),
+        if (data.metaphor?.isNotEmpty ?? false)
+          _buildExpandableSection(
+            context,
+            'Metaphor',
+            data.metaphor!,
+          ),
+        if (data.symbolism?.isNotEmpty ?? false)
+          _buildExpandableSection(
+            context,
+            'Symbolism',
+            data.symbolism!,
+          ),
+        if (data.theme?.isNotEmpty ?? false)
+          _buildExpandableSection(
+            context,
+            'Theme',
+            data.theme!,
+          ),
+        const SizedBox(height: 24),
       ],
     );
   }
