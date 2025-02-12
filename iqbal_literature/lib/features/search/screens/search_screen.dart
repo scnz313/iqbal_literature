@@ -153,17 +153,29 @@ class SearchScreen extends GetView<app_search.SearchController> {
     return ListView(
       controller: controller.scrollController,
       children: [
-        // Books section
+        // Books section - only show if there are book results
         if (controller.bookResults.isNotEmpty)
           _buildResultSection('Books', controller.bookResults),
           
-        // Poems section
+        // Poems section - only show if there are poem results
         if (controller.poemResults.isNotEmpty)
           _buildResultSection('Poems', controller.poemResults),
           
-        // Verses section
+        // Verses section - only show if there are verse results
         if (controller.verseResults.isNotEmpty)
           _buildResultSection('Verses', controller.verseResults),
+
+        // Show "No results found" if all sections are empty
+        if (controller.filteredResults.isEmpty && !controller.isLoading.value)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                'No results found for this filter',
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
+            ),
+          ),
       ],
     );
   }

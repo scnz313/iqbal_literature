@@ -205,6 +205,8 @@ class HistoricalContextSheet extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     return Card(
       elevation: 0,
       margin: EdgeInsets.zero,
@@ -213,9 +215,14 @@ class HistoricalContextSheet extends StatelessWidget {
           title,
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.bold,
-            color: Theme.of(context).primaryColor,
+            // Use appropriate colors for light/dark mode
+            color: isDarkMode 
+                ? Colors.white.withOpacity(0.87) 
+                : Theme.of(context).primaryColor,
           ),
         ),
+        iconColor: isDarkMode ? Colors.white70 : null, // Also adjust icon color
+        collapsedIconColor: isDarkMode ? Colors.white70 : null,
         children: [
           Padding(
             padding: const EdgeInsets.all(16),
@@ -223,6 +230,9 @@ class HistoricalContextSheet extends StatelessWidget {
               content,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                 height: 1.6,
+                color: isDarkMode 
+                    ? Colors.white.withOpacity(0.87)
+                    : Colors.black.withOpacity(0.87),
               ),
             ),
           ),

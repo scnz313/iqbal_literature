@@ -29,13 +29,29 @@ class SearchController extends GetxController {
   String get searchQuery => 
     searchController.text.isEmpty ? urduSearchController.text : searchController.text;
 
-  // Categorized results
+  // Update the getter to filter results based on selected type
+  List<SearchResult> get filteredResults {
+    if (selectedFilter.value == null) {
+      return searchResults;
+    }
+    return searchResults.where((result) => result.type == selectedFilter.value).toList();
+  }
+
+  // Update getters to use selectedFilter
   List<SearchResult> get bookResults => 
-    searchResults.where((r) => r.type == SearchResultType.book).toList();
+    selectedFilter.value == null || selectedFilter.value == SearchResultType.book
+      ? searchResults.where((r) => r.type == SearchResultType.book).toList()
+      : [];
+
   List<SearchResult> get poemResults => 
-    searchResults.where((r) => r.type == SearchResultType.poem).toList();
+    selectedFilter.value == null || selectedFilter.value == SearchResultType.poem
+      ? searchResults.where((r) => r.type == SearchResultType.poem).toList()
+      : [];
+
   List<SearchResult> get verseResults => 
-    searchResults.where((r) => r.type == SearchResultType.line).toList();
+    selectedFilter.value == null || selectedFilter.value == SearchResultType.line
+      ? searchResults.where((r) => r.type == SearchResultType.line).toList()
+      : [];
 
   // Minimum query length for search
   static const int _minQueryLength = 2;
@@ -121,16 +137,15 @@ class SearchController extends GetxController {
     });
   }
 
+  // Update performSearch to maintain all results
   Future<void> performSearch(String query) async {
     if (query.trim().isEmpty) return;
 
     try {
       isLoading.value = true;
-      
-      // Save search first
       await _saveRecentSearch(query.trim());
       
-      final results = await _searchService.search(query, limit: 20);
+      final results = await _searchService.search(query, limit: 50); // Increased limit
       searchResults.assignAll(results);
       
     } catch (e) {
@@ -155,7 +170,8 @@ class SearchController extends GetxController {
 
   void setFilter(SearchResultType? type) {
     selectedFilter.value = type;
-    performSearch(searchQuery);
+    // No need to perform new search, just update the UI with filtered results
+    searchResults.refresh();
   }
 
   Future<void> startVoiceSearch() async {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:flutter/services.dart';
 import 'core/services/init_service.dart';
 import 'config/routes/app_pages.dart';
 import 'firebase_options.dart';
@@ -13,6 +14,11 @@ import 'services/api/gemini_api.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
+  // Optimize system UI initialization
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+  ]);
+
   try {
     // Initialize Gemini API
     GeminiAPI.configure('AIzaSyDBZEDNSEmfoLoiY54sSr0RTNhTZPoEh-c');

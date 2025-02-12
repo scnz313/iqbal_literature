@@ -59,6 +59,8 @@ dependencies:
   timeline_tile: ^2.0.0
   http: ^1.1.0
   speech_to_text: ^6.6.0
+  animated_text_kit: ^4.2.2
+  hovering: ^1.0.4  # Update this line
 
 dev_dependencies:
   flutter_test:
@@ -71,6 +73,7 @@ dev_dependencies:
     sdk: flutter
   test: ^1.25.8
   firebase_core_platform_interface: ^5.4.0
+  flutter_launcher_icons: ^0.13.1
 
 flutter:
   uses-material-design: true
@@ -89,9 +92,25 @@ flutter:
 
 flutter_native_splash:
   color: "#FFFFFF"
-  image: assets/images/icons/splash_icon.png
+  image: assets/icon/iqbalApp_logo_1024.png    # Updated splash image
   color_dark: "#121212"
-  image_dark: assets/images/icons/splash_icon_dark.png
+  image_dark: assets/icon/iqbalApp_logo_1024.png  # Optionally use same image for dark mode or update accordingly
   android: true
   ios: true
   web: false
+  android_12:
+    image: assets/icon/iqbalApp_logo_1024.png     # Updated for Android 12
+    icon_background_color: "#FFFFFF"
+    image_dark: assets/icon/iqbalApp_logo_1024.png  # Optionally update
+    icon_background_color_dark: "#121212"
+  fullscreen: true
+  android_gravity: center
+  ios_content_mode: center
+  duration: 1000  # 1 second duration
+
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/iqbalApp_logo_1024.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/icon/iqbalApp_logo_108.png"

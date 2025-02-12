@@ -1,0 +1,8 @@
+{
+  "expo": {
+    "icon": "./assets/icon/iqbalApp_logo_1024.png",
+    "adaptive": {
+      "icon": "./assets/icon/iqbalApp_logo_108.png"
+    }
+  }
+}

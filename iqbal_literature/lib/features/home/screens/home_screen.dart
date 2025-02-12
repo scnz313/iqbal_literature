@@ -16,13 +16,20 @@ class HomeScreen extends GetView<HomeController> {
         title: const Text('Iqbal Literature'),
         centerTitle: true,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.bookmark_outline),  // Changed from favorite_outline to bookmark_outline
-            onPressed: () {
-              Get.toNamed('/favorites');
-            },
-            tooltip: 'Bookmarks',  // Updated tooltip text
-          ),
+          // Only show bookmark icon for Books (0) and Poems (1) screens
+          Obx(() {
+            final currentIndex = controller.currentIndex.value;
+            if (currentIndex == 0 || currentIndex == 1) {
+              return IconButton(
+                icon: const Icon(Icons.bookmark_outline),
+                onPressed: () {
+                  Get.toNamed('/favorites');
+                },
+                tooltip: 'Bookmarks',
+              );
+            }
+            return const SizedBox.shrink();
+          }),
         ],
       ),
       body: Obx(() => IndexedStack(

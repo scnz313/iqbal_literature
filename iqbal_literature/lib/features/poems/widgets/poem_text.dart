@@ -1,29 +1,58 @@
 import 'package:flutter/material.dart';
-import '../../../core/widgets/scaled_text.dart';
-import '../../../core/mixins/font_scale_mixin.dart';
+import '../../../services/analysis/text_analysis_service.dart';
+import '../../../widgets/analysis/word_analysis_sheet.dart';
+import '../../poems/widgets/poem_stanza_widget.dart';
 
-class PoemText extends StatelessWidget with FontScaleMixin {
+class PoemText extends StatelessWidget {
   final String text;
   final String languageCode;
+  final TextAnalysisService analysisService;
+  final double fontSize;
 
   const PoemText({
     super.key,
     required this.text,
     required this.languageCode,
+    required this.analysisService,
+    this.fontSize = 24,
   });
+
+  void _showWordAnalysis(BuildContext context, String word) async {
+    try {
+      final analysis = await analysisService.analyzeWord(word);
+      if (context.mounted) {
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (context) => WordAnalysisSheet(analysis: analysis),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final baseStyle = Theme.of(context).textTheme.bodyLarge?.copyWith(
-      height: 1.8, // Add line height for poetry
-      letterSpacing: languageCode == 'ur' ? 1.2 : 0.5,
-    );
-    
-    return ScaledText(
-      text,
-      style: baseStyle,
-      textDirection: languageCode == 'ur' ? TextDirection.rtl : TextDirection.ltr,
-      textAlign: languageCode == 'ur' ? TextAlign.right : TextAlign.left,
+    final verses = text.split('\n');
+    var lineNumber = 1;
+
+    return Column(
+      children: [
+        for (final verse in verses)
+          if (verse.trim().isNotEmpty)
+            PoemStanzaWidget(
+              verses: [verse],
+              startLineNumber: lineNumber++,
+              fontSize: fontSize,
+              onWordTap: (word) => _showWordAnalysis(context, word),
+            ),
+      ],
     );
   }
 }
