@@ -23,10 +23,19 @@ class Line {
     );
   }
 
+  factory Line.fromMap(Map<String, dynamic> map) {
+    return Line(
+      id: map['_id'] as int,
+      poemId: map['poem_id'] as int,
+      lineText: map['line_text'] as String,
+      orderBy: map['order_by'] as int,
+    );
+  }
+
   Map<String, dynamic> toMap() => {
-    '_id': id,
-    'poem_id': poemId,
-    'line_text': lineText,
-    'order_by': orderBy,
-  };
+        '_id': id,
+        'poem_id': poemId,
+        'line_text': lineText,
+        'order_by': orderBy,
+      };
 }

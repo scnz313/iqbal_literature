@@ -8,17 +8,20 @@ import '../../services/api/gemini_api.dart';
 
 class OpenRouterService {
   // API Keys and service flags
-  static const String? _geminiApiKey = 'AIzaSyDBZEDNSEmfoLoiY54sSr0RTNhTZPoEh-c';
-  static const String? _openrouterKey = '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';
-  static const String _geminiUrl = 'https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent';
-  
+  static const String? _geminiApiKey =
+      'AIzaSyC8sY9B8jI7cpdv8DFbMSmSVqjkwfH_ARQ';
+  static const String? _openrouterKey =
+      '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';
+  static const String _geminiUrl =
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+
   // Updated working models only - removed OpenAI models
   static const Map<String, Map<String, dynamic>> _modelConfigs = {
     'primary': {
       'url': 'https://openrouter.ai/api/v1/chat/completions',
       'models': [
         'deepseek-ai/deepseek-chat-33b', // Primary model
-        'meta/llama-2-70b-chat',         // First fallback
+        'meta/llama-2-70b-chat', // First fallback
         'nousresearch/nous-hermes-2-mixtral-8x7b-dpo', // Second fallback
       ],
     },
@@ -55,7 +58,7 @@ class OpenRouterService {
         try {
           debugPrint('📝 Attempting Gemini analysis...');
           final analysis = await GeminiAPI.analyzePoemContent(text);
-          
+
           // Cache and return successful analysis
           await CacheService.cacheAnalysis(cacheKey, analysis);
           return analysis;
@@ -75,15 +78,19 @@ class OpenRouterService {
   }
 
   static Future<Map<String, String>> _analyzeWithGemini(String text) async {
-    final response = await http.post(
-      Uri.parse('$_geminiUrl?key=$_geminiApiKey'),
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({
-        "contents": [{
-          "parts": [{
-            "text": '''Analyze this poem and provide the following sections:
+    try {
+      final response = await http.post(
+        Uri.parse('$_geminiUrl?key=$_geminiApiKey'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          "contents": [
+            {
+              "parts": [
+                {
+                  "text":
+                      '''Analyze this poem and provide the following sections:
 $text
 
 Respond in exactly this format:
@@ -100,35 +107,58 @@ HISTORICAL CONTEXT:
 
 ANALYSIS:
 [Literary analysis, 2-3 sentences]'''
-          }]
-        }],
-        "generationConfig": {
-          "temperature": 0.7,
-          "maxOutputTokens": 1000,
-          "topP": 1,
-          "topK": 40
+                }
+              ]
+            }
+          ],
+          "generationConfig": {
+            "temperature": 0.7,
+            "maxOutputTokens": 1000,
+            "topP": 1,
+            "topK": 40
+          }
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        debugPrint('✅ Successful Gemini response received');
+
+        final data = jsonDecode(response.body);
+        // Check if the response has the expected structure
+        if (data['candidates'] == null ||
+            data['candidates'].isEmpty ||
+            data['candidates'][0]['content'] == null ||
+            data['candidates'][0]['content']['parts'] == null ||
+            data['candidates'][0]['content']['parts'].isEmpty ||
+            data['candidates'][0]['content']['parts'][0]['text'] == null) {
+          debugPrint('⚠️ Invalid response format from Gemini API');
+          debugPrint('📄 Raw response: ${response.body}');
+          throw Exception('Invalid response format from Gemini API');
         }
-      }),
-    );
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      final content = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
+        final content = data['candidates'][0]['content']['parts'][0]['text'];
 
-      if (content == null || content.toString().isEmpty) {
-        throw Exception('Empty response from Gemini API');
+        if (content == null || content.toString().isEmpty) {
+          throw Exception('Empty response from Gemini API');
+        }
+
+        // Parse and validate content
+        final analysis = _parseAnalysisContent(content.toString());
+        if (!_isValidAnalysis(analysis)) {
+          throw Exception('Invalid analysis format from Gemini');
+        }
+
+        return analysis;
       }
 
-      // Parse and validate content
-      final analysis = _parseAnalysisContent(content.toString());
-      if (!_isValidAnalysis(analysis)) {
-        throw Exception('Invalid analysis format from Gemini');
-      }
-
-      return analysis;
+      debugPrint(
+          '❌ Gemini API error: ${response.statusCode} - ${response.body}');
+      throw Exception(
+          'Gemini API Error ${response.statusCode}: ${response.body}');
+    } catch (e) {
+      debugPrint('❌ Gemini API request failed: $e');
+      throw Exception('Failed to get response from Gemini: $e');
     }
-
-    throw Exception('Gemini API Error ${response.statusCode}: ${response.body}');
   }
 
   static Future<Map<String, String>> _fallbackAnalysis(
@@ -155,10 +185,7 @@ ANALYSIS:
                 'content':
                     'You are a poetry expert. Analyze the given poem clearly and concisely.'
               },
-              {
-                'role': 'user',
-                'content': text
-              }
+              {'role': 'user', 'content': text}
             ],
             'temperature': 0.3, // Lower temperature for more focused responses
             'max_tokens': 800, // Reduced for faster responses
@@ -232,12 +259,10 @@ ANALYSIS:
         "messages": [
           {
             "role": "system",
-            "content": "You are a literary expert specializing in poetry analysis."
+            "content":
+                "You are a literary expert specializing in poetry analysis."
           },
-          {
-            "role": "user",
-            "content": prompt ?? "Analyze this poem:\n\n$text"
-          }
+          {"role": "user", "content": prompt ?? "Analyze this poem:\n\n$text"}
         ],
         "temperature": 0.5,
         "max_tokens": 1000,
@@ -245,9 +270,10 @@ ANALYSIS:
     );
 
     if (response.statusCode == 200) {
-      final content = jsonDecode(response.body)['choices'][0]['message']['content'];
+      final content =
+          jsonDecode(response.body)['choices'][0]['message']['content'];
       final analysis = _parseAnalysisContent(content);
-      
+
       if (_isValidAnalysis(analysis)) {
         return analysis;
       }
@@ -272,10 +298,7 @@ ANALYSIS:
             "content":
                 "You are a literary expert analyzing Urdu and Persian poetry."
           },
-          {
-            "role": "user",
-            "content": "Analyze this poem in English:\n\n$text"
-          }
+          {"role": "user", "content": "Analyze this poem in English:\n\n$text"}
         ]
       }),
     );
@@ -312,19 +335,17 @@ ANALYSIS:
     try {
       final result = <String, String>{};
       final sections = content.split('\n\n');
-      
+
       for (var section in sections) {
-        section = section
-            .replaceAll('**', '')
-            .replaceAll('*', '')
-            .trim();
-            
+        section = section.replaceAll('**', '').replaceAll('*', '').trim();
+
         if (section.startsWith('SUMMARY:')) {
           result['summary'] = section.substring('SUMMARY:'.length).trim();
         } else if (section.startsWith('THEMES:')) {
           result['themes'] = section.substring('THEMES:'.length).trim();
         } else if (section.startsWith('HISTORICAL CONTEXT:')) {
-          result['context'] = section.substring('HISTORICAL CONTEXT:'.length).trim();
+          result['context'] =
+              section.substring('HISTORICAL CONTEXT:'.length).trim();
         } else if (section.startsWith('ANALYSIS:')) {
           result['analysis'] = section.substring('ANALYSIS:'.length).trim();
         }
@@ -435,7 +456,8 @@ ANALYSIS:
           "messages": [
             {
               "role": "system",
-              "content": "Analyze Urdu/Persian words and return JSON format responses."
+              "content":
+                  "Analyze Urdu/Persian words and return JSON format responses."
             },
             {
               "role": "user",
@@ -473,10 +495,7 @@ ANALYSIS:
 
   static Map<String, dynamic> _getDefaultWordAnalysis(String word) {
     return {
-      'meaning': {
-        'english': 'Analysis unavailable',
-        'urdu': word
-      },
+      'meaning': {'english': 'Analysis unavailable', 'urdu': word},
       'pronunciation': 'Not available',
       'partOfSpeech': 'Not available',
       'examples': ['Not available']
@@ -498,10 +517,7 @@ ANALYSIS:
             'content':
                 'You are a knowledgeable assistant specializing in Iqbal\'s poetry and Islamic history.'
           },
-          {
-            'role': 'user',
-            'content': prompt
-          }
+          {'role': 'user', 'content': prompt}
         ],
         'temperature': 0.7,
       }),
@@ -538,7 +554,8 @@ ANALYSIS:
           'messages': [
             {
               'role': 'system',
-              'content': '''You are an expert in Allama Iqbal's poetry and Islamic history. 
+              'content':
+                  '''You are an expert in Allama Iqbal's poetry and Islamic history. 
               Analyze the poem and provide details in a structured format.
               Do not include any Urdu text in your response, use English only.'''
             },
@@ -572,8 +589,8 @@ ANALYSIS:
         // Parse and clean the response
         final sections = content.split('\n\n');
         final year = _cleanText(sections[0].replaceAll('YEAR:', '').trim());
-        final historicalContext =
-            _cleanText(sections[1].replaceAll('HISTORICAL CONTEXT:', '').trim());
+        final historicalContext = _cleanText(
+            sections[1].replaceAll('HISTORICAL CONTEXT:', '').trim());
         final significance =
             _cleanText(sections[2].replaceAll('SIGNIFICANCE:', '').trim());
 
@@ -676,12 +693,14 @@ ANALYSIS:
           'messages': [
             {
               'role': 'system',
-              'content': '''You are a historian specializing in Allama Iqbal's works. 
+              'content':
+                  '''You are a historian specializing in Allama Iqbal's works. 
               Create a timeline of events in JSON format. Use English text only, do not include Urdu or Persian text.'''
             },
             {
               'role': 'user',
-              'content': '''Create a timeline for Allama Iqbal's book "$bookName" 
+              'content':
+                  '''Create a timeline for Allama Iqbal's book "$bookName" 
               ${timePeriod != null ? 'during $timePeriod' : ''}.
               
               Return the response in this exact JSON format:
@@ -724,8 +743,10 @@ ANALYSIS:
             .map((event) => Map<String, dynamic>.from({
                   'year': _cleanText(event['year']?.toString() ?? ''),
                   'title': _cleanText(event['title']?.toString() ?? ''),
-                  'description': _cleanText(event['description']?.toString() ?? ''),
-                  'significance': _cleanText(event['significance']?.toString() ?? ''),
+                  'description':
+                      _cleanText(event['description']?.toString() ?? ''),
+                  'significance':
+                      _cleanText(event['significance']?.toString() ?? ''),
                 }))
             .toList();
       }
@@ -755,6 +776,7 @@ ANALYSIS:
       }
     ];
   }
+
   // Update the _cleanText method with advanced character handling
   static String _cleanTextEnhanced(String text) {
     try {
@@ -781,41 +803,40 @@ ANALYSIS:
   }
 }
 
-  // Helper for retrying operations
-  Future<T> _retryWithBackoff<T>(
-    Future<T> Function() operation, {
-    int maxAttempts = 2,
-    Duration delay = const Duration(seconds: 2),
-  }) async {
-    var attempts = 0;
-    while (attempts < maxAttempts) {
-      try {
-        return await operation();
-      } catch (e) {
-        attempts++;
-        if (attempts == maxAttempts) rethrow;
-        await Future.delayed(delay * attempts);
-      }
+// Helper for retrying operations
+Future<T> _retryWithBackoff<T>(
+  Future<T> Function() operation, {
+  int maxAttempts = 2,
+  Duration delay = const Duration(seconds: 2),
+}) async {
+  var attempts = 0;
+  while (attempts < maxAttempts) {
+    try {
+      return await operation();
+    } catch (e) {
+      attempts++;
+      if (attempts == maxAttempts) rethrow;
+      await Future.delayed(delay * attempts);
     }
-    throw Exception('Max retry attempts reached');
   }
+  throw Exception('Max retry attempts reached');
+}
 
-  // Add retry helper
-  Future<T> _tryWithRetry<T>(
-    Future<T> Function() operation, {
-    int maxAttempts = 2,
-    Duration delayBetween = const Duration(seconds: 2),
-  }) async {
-    int attempts = 0;
-    while (attempts < maxAttempts) {
-      try {
-        return await operation();
-      } catch (e) {
-        attempts++;
-        if (attempts == maxAttempts) rethrow;
-        await Future.delayed(delayBetween);
-      }
+// Add retry helper
+Future<T> _tryWithRetry<T>(
+  Future<T> Function() operation, {
+  int maxAttempts = 2,
+  Duration delayBetween = const Duration(seconds: 2),
+}) async {
+  int attempts = 0;
+  while (attempts < maxAttempts) {
+    try {
+      return await operation();
+    } catch (e) {
+      attempts++;
+      if (attempts == maxAttempts) rethrow;
+      await Future.delayed(delayBetween);
     }
-    throw Exception('Max retry attempts reached');
   }
-
+  throw Exception('Max retry attempts reached');
+}

@@ -1,3 +1,12 @@
+plugins {
+    id 'com.android.application'
+    id 'kotlin-android'
+    // Comment out Firebase plugins temporarily
+    // id 'com.google.gms.google-services'
+    // id 'com.google.firebase.crashlytics'
+    id 'dev.flutter.flutter-gradle-plugin'
+}
+
 def localProperties = new Properties()
 def localPropertiesFile = rootProject.file('local.properties')
 if (localPropertiesFile.exists()) {
@@ -8,19 +17,25 @@ if (localPropertiesFile.exists()) {
 
 def flutterRoot = localProperties.getProperty('flutter.sdk')
 if (flutterRoot == null) {
-    throw new GradleException("Flutter SDK not found. Define location with flutter.sdk in the local.properties file.")
+    throw new RuntimeException("Flutter SDK not found. Define location with flutter.sdk in the local.properties file.")
 }
 
-apply plugin: 'com.android.application'
-apply plugin: 'kotlin-android'
-apply plugin: 'com.google.gms.google-services'
-apply plugin: 'com.google.firebase.crashlytics'
-apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
+def flutterVersionCode = localProperties.getProperty('flutter.versionCode')
+if (flutterVersionCode == null) {
+    flutterVersionCode = '1'
+}
+
+def flutterVersionName = localProperties.getProperty('flutter.versionName')
+if (flutterVersionName == null) {
+    flutterVersionName = '1.0'
+}
+
+def kotlin_version = '1.9.22'
 
 android {
-    namespace "com.iqbal"
-    compileSdkVersion flutter.compileSdkVersion
-    ndkVersion flutter.ndkVersion
+    namespace "com.iqbalbook.iqbal_literature"
+    compileSdk flutter.compileSdkVersion
+    ndkVersion "26.3.11579264"
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
@@ -36,46 +51,70 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.iqbal"
+        applicationId "com.iqbalbook.iqbal_literature"
         minSdkVersion flutter.minSdkVersion
         targetSdkVersion flutter.targetSdkVersion
-        versionCode 1
-        versionName "1.0.0"
+        versionCode flutterVersionCode.toInteger()
+        versionName flutterVersionName
         multiDexEnabled true
     }
 
-    // Remove unnecessary build variants and keep only what's needed
     buildTypes {
+        debug {
+            // Use default debug signing config
+        }
         release {
-            signingConfig signingConfigs.debug
             minifyEnabled true
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
             shrinkResources true
-            debuggable false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 
-    // Add APK splits by ABI to reduce APK size
+    // Fix for Flutter APK location issue
+    afterEvaluate {
+        tasks.named("assembleDebug") {
+            doLast {
+                copy {
+                    from "${buildDir}/outputs/apk/debug"
+                    into "${buildDir}/outputs/flutter-apk"
+                    include "*.apk"
+                }
+                // Create a single-ABI fat APK that Flutter can find
+                copy {
+                    from "${buildDir}/outputs/apk/debug/app-arm64-v8a-debug.apk"
+                    into "${buildDir}/outputs/flutter-apk"
+                    rename "app-arm64-v8a-debug.apk", "app-debug.apk"
+                }
+            }
+        }
+    }
+
     splits {
         abi {
             enable true
             reset()
-            include 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
+            include 'x86', 'x86_64', 'armeabi-v7a', 'arm64-v8a'
             universalApk false
         }
     }
-}
 
-flutter {
-    source '../..'
+    packagingOptions {
+        exclude 'META-INF/DEPENDENCIES'
+        exclude 'META-INF/LICENSE'
+        exclude 'META-INF/LICENSE.txt'
+        exclude 'META-INF/license.txt'
+        exclude 'META-INF/NOTICE'
+        exclude 'META-INF/NOTICE.txt'
+        exclude 'META-INF/notice.txt'
+        exclude 'META-INF/ASL2.0'
+    }
 }
 
 dependencies {
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+    // Comment out Firebase dependencies temporarily
+    // implementation platform('com.google.firebase:firebase-bom:32.7.3')
+    // implementation 'com.google.firebase:firebase-analytics-ktx'
+    // implementation 'com.google.firebase:firebase-crashlytics-ktx'
     implementation 'androidx.multidex:multidex:2.0.1'
-    implementation platform('com.google.firebase:firebase-bom:32.7.2')
-    implementation 'com.google.firebase:firebase-analytics-ktx'
-    implementation 'com.google.firebase:firebase-crashlytics-ktx'
-    implementation 'com.google.firebase:firebase-firestore-ktx'
-    implementation 'com.google.firebase:firebase-auth-ktx'
 }

@@ -19,8 +19,26 @@ class Book {
   });
 
   factory Book.fromMap(Map<String, dynamic> data) {
+    // Make sure we have a valid id
+    final dynamic rawId = data['_id'] ?? data['id'];
+    if (rawId == null) {
+      throw ArgumentError('Book id cannot be null');
+    }
+
+    // Convert id to int safely
+    final int id;
+    if (rawId is int) {
+      id = rawId;
+    } else if (rawId is num) {
+      id = rawId.toInt();
+    } else if (rawId is String) {
+      id = int.parse(rawId);
+    } else {
+      throw ArgumentError('Invalid book id type: ${rawId.runtimeType}');
+    }
+
     return Book(
-      id: data['_id'] as int,
+      id: id,
       icon: data['icon']?.toString() ?? '',
       language: data['language']?.toString() ?? '',
       name: data['name']?.toString() ?? '',
@@ -33,12 +51,12 @@ class Book {
     try {
       final data = doc.data() as Map<String, dynamic>;
       debugPrint('Processing book data: $data');
-      
+
       final id = data['_id'];
       if (id == null) {
         debugPrint('❌ Book _id is null in document ${doc.id}');
       }
-      
+
       return Book(
         id: (id is int) ? id : (id as num).toInt(),
         name: data['name']?.toString() ?? '',
@@ -54,11 +72,11 @@ class Book {
   }
 
   Map<String, dynamic> toMap() => {
-    'id': id,
-    'name': name,
-    'language': language,
-    'icon': icon,
-    'orderBy': orderBy,
-    'time_period': timePeriod, // Add this field
-  };
+        'id': id,
+        'name': name,
+        'language': language,
+        'icon': icon,
+        'orderBy': orderBy,
+        'time_period': timePeriod, // Add this field
+      };
 }

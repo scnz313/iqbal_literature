@@ -5,13 +5,17 @@ import 'package:flutter/foundation.dart';
 
 /// Service class for interacting with Google's Gemini API
 class GeminiAPI {
-  static const String _baseUrl = 'https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent';
+  static const String _baseUrl =
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
   static String? _apiKey;
 
   /// Configure the API key for Gemini
   static void configure(String apiKey) {
     _apiKey = apiKey;
+    debugPrint(
+        '🔑 Gemini API configured with key: ${apiKey.substring(0, 5)}...');
   }
+
   /// Check if API is configured
   static bool get isConfigured => _apiKey != null;
 
@@ -27,7 +31,7 @@ class GeminiAPI {
 
     try {
       debugPrint('🤖 Sending request to Gemini API...');
-      
+
       final response = await http.post(
         Uri.parse('$_baseUrl?key=$_apiKey'),
         headers: {
@@ -35,33 +39,45 @@ class GeminiAPI {
           'Accept': 'application/json',
         },
         body: jsonEncode({
-          'contents': [{
-            'parts': [{
-              'text': prompt
-            }]
-          }],
+          'contents': [
+            {
+              'parts': [
+                {'text': prompt}
+              ]
+            }
+          ],
           'generationConfig': {
             'temperature': temperature,
             'maxOutputTokens': maxTokens,
             'topP': 1,
             'topK': 40,
-            'stopSequences': ['```'],
           }
         }),
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final content = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
 
-        if (content == null) {
+        // Check if the response has the expected structure
+        if (data['candidates'] == null ||
+            data['candidates'].isEmpty ||
+            data['candidates'][0]['content'] == null ||
+            data['candidates'][0]['content']['parts'] == null ||
+            data['candidates'][0]['content']['parts'].isEmpty ||
+            data['candidates'][0]['content']['parts'][0]['text'] == null) {
+          debugPrint('⚠️ Invalid response format from Gemini API');
+          debugPrint('📄 Raw response: ${response.body}');
           throw Exception('Invalid response format from Gemini API');
         }
 
+        final content = data['candidates'][0]['content']['parts'][0]['text'];
         return content.toString().trim();
       }
 
-      throw Exception('Gemini API Error ${response.statusCode}: ${response.body}');
+      debugPrint(
+          '❌ Gemini API Error: [${response.statusCode}] ${response.body}');
+      throw Exception(
+          'Gemini API Error ${response.statusCode}: ${response.body}');
     } catch (e) {
       debugPrint('❌ Gemini API Error: $e');
       rethrow;
@@ -75,8 +91,7 @@ class GeminiAPI {
         .replaceAll('"', "'")
         .replaceAll('"', "'")
         .replaceAll(''', "'")
-        .replaceAll(''', "'")
-        .trim();
+        .replaceAll(''', "'").trim();
   }
 
   /// Generate poem analysis using specific prompt format
@@ -109,10 +124,8 @@ ANALYSIS:
       debugPrint('📝 Raw Gemini Response: $response');
 
       // Clean markdown formatting and normalize sections
-      final cleanedResponse = response
-          .replaceAll('**', '')
-          .replaceAll('*', '')
-          .trim();
+      final cleanedResponse =
+          response.replaceAll('**', '').replaceAll('*', '').trim();
 
       final Map<String, String> result = {};
       var currentSection = '';
@@ -121,7 +134,7 @@ ANALYSIS:
       final lines = cleanedResponse.split('\n');
       for (var line in lines) {
         line = line.trim();
-        
+
         if (line.isEmpty) {
           if (currentSection.isNotEmpty && sectionContent.isNotEmpty) {
             result[currentSection] = sectionContent.toString().trim();
@@ -159,10 +172,14 @@ ANALYSIS:
 
       debugPrint('📊 Parsed sections: ${result.keys.join(', ')}');
       for (var entry in result.entries) {
-        debugPrint('${entry.key}: ${entry.value.substring(0, min(50, entry.value.length))}...');
+        if (entry.value.isNotEmpty) {
+          debugPrint(
+              '${entry.key}: ${entry.value.substring(0, min(50, entry.value.length))}...');
+        }
       }
 
       if (!_isValidAnalysis(result)) {
+        debugPrint('⚠️ Invalid analysis format - missing sections');
         throw Exception('Invalid response format - missing sections');
       }
 
@@ -173,10 +190,8 @@ ANALYSIS:
     }
   }
 
-  static Future<List<Map<String, dynamic>>> getTimelineEvents(
-    String bookName, 
-    [String? timePeriod]
-  ) async {
+  static Future<List<Map<String, dynamic>>> getTimelineEvents(String bookName,
+      [String? timePeriod]) async {
     if (!isConfigured) {
       throw Exception('Gemini API not configured');
     }
@@ -184,7 +199,7 @@ ANALYSIS:
     try {
       debugPrint('📝 Requesting timeline from Gemini...');
       final response = await generateContent(
-        prompt: _getTimelinePrompt(bookName),
+        prompt: _getTimelinePrompt(bookName, timePeriod),
         temperature: 0.3,
         maxTokens: 2000,
       );
@@ -214,16 +229,17 @@ ANALYSIS:
       // Extract JSON array
       final jsonStart = response.indexOf('[');
       final jsonEnd = response.lastIndexOf(']') + 1;
-      
+
       if (jsonStart < 0 || jsonEnd <= jsonStart) {
         return null;
       }
 
       var extracted = response.substring(jsonStart, jsonEnd);
-      
+
       // Basic cleanup
       extracted = extracted
-          .replaceAll(RegExp(r'[\u2018\u2019\u201C\u201D]'), '"') // Smart quotes
+          .replaceAll(
+              RegExp(r'[\u2018\u2019\u201C\u201D]'), '"') // Smart quotes
           .replaceAll('"', '"')
           .replaceAll('"', '"')
           .replaceAll(''', "'")
@@ -238,425 +254,185 @@ ANALYSIS:
       jsonDecode(extracted); // Test parse
       return extracted;
     } catch (e) {
-      debugPrint('❌ JSON cleaning failed: $e');
+      debugPrint('❌ JSON cleaning error: $e');
       return null;
     }
   }
 
-  static String _getTimelinePrompt(String bookName) {
-    return '''As an expert on Allama Iqbal's literary works, create a detailed historical timeline for "$bookName".
-Provide exactly 5 significant events formatted as a JSON array.
+  // Validate that the analysis contains all required sections
+  static bool _isValidAnalysis(Map<String, String> analysis) {
+    final requiredSections = ['summary', 'themes', 'context', 'analysis'];
 
-For each event include:
-1. Year - Specific date if known
-2. Title - Clear, descriptive title of the event
-3. Description - 3-4 sentences covering:
-   - Historical context and background
-   - Key figures involved
-   - Cultural and literary significance
-   - Impact on Iqbal's work
-4. Significance - 3-4 sentences explaining:
-   - Literary importance
-   - Historical relevance
-   - Cultural impact
-   - Connection to Iqbal's philosophy
+    // Check if all required sections are present and not empty
+    for (final section in requiredSections) {
+      if (!analysis.containsKey(section) || analysis[section]!.isEmpty) {
+        debugPrint('⚠️ Missing required section: $section');
+        return false;
+      }
+    }
 
-Format Example:
+    return true;
+  }
+
+  static String _getTimelinePrompt(String bookName, [String? timePeriod]) {
+    return '''Create a timeline of key historical events related to Allama Iqbal's "${bookName}" ${timePeriod != null ? 'during the $timePeriod period' : ''}.
+
+Return ONLY a JSON array in this exact format, with no additional text or explanation:
 [
   {
-    "year": "1915",
-    "title": "Publication of Asrar-e-Khudi",
-    "description": "First Persian masterwork published in Lahore. The work introduced Iqbals philosophical vision to a wider audience. Notable scholars and intellectuals praised its innovative approach to Islamic thought.",
-    "significance": "Established Iqbal as a major philosophical poet. The work influenced Muslim intellectual discourse throughout the subcontinent. Its themes of self-realization continue to resonate today."
-  }
+    "year": "YYYY", // Example: "1930" (or a range like "1930-1932")
+    "title": "Short event title",
+    "description": "Detailed description of the event (2-3 sentences)",
+    "significance": "Why this event matters in context of the book (1-2 sentences)"
+  },
+  // Include 8-12 events in chronological order
 ]
 
-IMPORTANT:
-- Provide extensive factual details
-- Use simple ASCII characters only
-- Avoid quotes within text
-- Keep sentences clear and complete
-- Focus on historical accuracy
-- Maintain valid JSON structure''';
+INCLUDE ONLY the JSON array with no other text. Ensure the JSON is properly formatted with double quotes for all keys and string values.''';
   }
 
   static List<Map<String, dynamic>> _getDefaultTimelineEvents(String bookName) {
     return [
       {
-        'year': '1915',
-        'title': 'First Publication',
-        'description': 'The work was first published in Lahore during a pivotal time in Indian history. Muslim intellectual movements were gaining momentum across the subcontinent. The publication coincided with growing calls for political and social reform.',
-        'significance': 'Marked a significant development in Urdu/Persian literature. The work influenced both literary and political discourse. Its themes resonated with the emerging Muslim consciousness of the era.',
+        "year": "1905",
+        "title": "Publication of Asrar-e-Khudi",
+        "description":
+            "Iqbal published his seminal work focusing on the concept of selfhood and self-realization. This Persian poem introduced his philosophical vision.",
+        "significance":
+            "Marked Iqbal's emergence as a major philosophical poet and established his core themes."
       },
       {
-        'year': '1920',
-        'title': 'Critical Reception and Impact',
-        'description': 'Major literary figures and scholars began analyzing and commenting on the work. It sparked intellectual debates across academic circles. The themes and ideas presented challenged conventional thinking.',
-        'significance': 'Established new directions in philosophical poetry. Generated important discussions about Muslim identity and progress. Influenced subsequent generations of writers and thinkers.',
+        "year": "1908",
+        "title": "Iqbal's Return to India",
+        "description":
+            "After completing his education in Europe, Iqbal returned to India with new philosophical perspectives. His European experience deeply influenced his worldview.",
+        "significance":
+            "Began synthesis of Eastern and Western thought that would characterize his literary output."
       },
-      // ...more detailed default events...
+      {
+        "year": "1915",
+        "title": "Publication of Asrar-o-Rumuz",
+        "description":
+            "Released collection of Persian poetry exploring deeper mystical and philosophical concepts. This work expanded on ideas introduced in earlier writings.",
+        "significance":
+            "Solidified Iqbal's reputation as the philosophical poet of Islamic revival."
+      },
+      {
+        "year": "1923",
+        "title": "Political Awakening Period",
+        "description":
+            "Iqbal became more actively involved in politics and the Muslim cause in India. His poetry began reflecting greater political consciousness.",
+        "significance":
+            "Poetry from this period shows growing concern with the practical implications of his philosophy."
+      },
+      {
+        "year": "1930",
+        "title": "Allahabad Address",
+        "description":
+            "Delivered famous speech proposing the idea of a separate Muslim state in Northwest India. This address is considered a foundational document for Pakistan.",
+        "significance":
+            "Demonstrated how Iqbal's philosophical ideas translated into political vision."
+      },
+      {
+        "year": "1938",
+        "title": "Iqbal's Death",
+        "description":
+            "Allama Muhammad Iqbal passed away in Lahore on April 21, 1938. His literary legacy included poetry in Persian and Urdu that transformed Muslim intellectual thought.",
+        "significance":
+            "His works continued to inspire the Pakistan movement and Islamic revival worldwide."
+      }
     ];
   }
 
-  static String _cleanJsonResponse(String response) {
-    // First, extract the JSON array
-    final jsonStart = response.indexOf('[');
-    final jsonEnd = response.lastIndexOf(']') + 1;
-    
-    if (jsonStart < 0 || jsonEnd <= jsonStart) {
-      throw Exception('Invalid JSON format in response');
-    }
-
-    var cleanedJson = response
-        .substring(jsonStart, jsonEnd)
-        // Replace all single quotes with double quotes for JSON
-        .replaceAll("'", '"')
-        // Clean other special characters
-        .replaceAll('–', '-')
-        .replaceAll('…', '...')
-        .replaceAll('"', '"')
-        .replaceAll('"', '"')
-        .replaceAll(''', "'")
-        .replaceAll(''', "'")
-        .replaceAll(' ', ' ') // Replace special spaces
-        .replaceAll(RegExp(r'[^\x20-\x7E\s]'), '');
-
-    // Format the JSON properly
+  // Historical context analysis
+  static Future<Map<String, dynamic>> getHistoricalContext(
+      String title, String poemText) async {
     try {
-      // Test parse to ensure valid JSON
-      final parsed = jsonDecode(cleanedJson);
-      return jsonEncode(parsed); // Re-encode to ensure proper formatting
-    } catch (e) {
-      debugPrint('First JSON parse failed, trying additional cleaning...');
-      
-      // Additional cleaning attempt
-      cleanedJson = cleanedJson
-          .replaceAll(RegExp(r'\\(?!["\\/bfnrt])'), '')
-          .replaceAll(RegExp(r',(\s*[}\]])', multiLine: true), r'$1');
+      final prompt = '''
+Analyze this poem by Allama Iqbal comprehensively:
+TITLE: $title
 
-      try {
-        final parsed = jsonDecode(cleanedJson);
-        return jsonEncode(parsed);
-      } catch (e) {
-        debugPrint('❌ JSON cleaning failed: $e');
-        throw Exception('Could not clean JSON response');
-      }
-    }
-  }
+TEXT:
+$poemText
 
-  static String _cleanTextContent(String text) {
-    return text
-        .replaceAll('"', "'")
-        .replaceAll(''', "'")
-        .replaceAll(''', "'")
-        .replaceAll('"', "'")
-        .replaceAll('"', "'")
-        .replaceAll('\\', '')
-        .replaceAll('\n', ' ')
-        .replaceAll('\r', ' ')
-        .trim();
-  }
+Provide a JSON response with EXACTLY these fields:
+{
+  "year": "When this poem was likely written (best estimate if exact date unknown)",
+  "historicalContext": "Detailed historical background (3-4 sentences)",
+  "significance": "Cultural and literary significance (3-4 sentences)",
+  "culturalImportance": "How it relates to Muslim/South Asian culture (2-3 sentences)",
+  "religiousThemes": "Religious aspects and Islamic philosophy references (2-3 sentences)",
+  "politicalMessages": "Political themes or messages (2-3 sentences)",
+  "factualInformation": "Any specific factual or historical references in the poem (2-3 sentences)",
+  "imagery": "Key imagery used and its significance (2-3 examples)",
+  "metaphor": "Major metaphors and their meaning (2-3 examples)",
+  "symbolism": "Important symbols and their interpretations (2-3 examples)",
+  "theme": "The overarching theme and message (2-3 sentences)"
+}
 
-  static String _cleanString(String text) {
-    return text
-        .replaceAll('"', "'")
-        .replaceAll(''', "'")
-        .replaceAll(''', "'")
-        .replaceAll('"', "'")
-        .replaceAll('"', "'")
-        .trim();
-  }
+Return ONLY the JSON with no other explanation.''';
 
-  static Future<Map<String, String>> getHistoricalContext(String title, String content) async {
-    if (!isConfigured) {
-      throw Exception('Gemini API not configured');
-    }
-
-    final prompt = '''You are a scholar of Allama Iqbal's poetry. Analyze this Urdu/Persian poem:
-
-Title: $title
-Content: $content
-
-Provide a detailed analysis focusing on these aspects. Be specific and factual:
-
-YEAR:
-Write when this poem was written. If exact year unknown, give approximate range based on Iqbal's life periods (1877-1938).
-
-HISTORICAL_CONTEXT:
-Describe the historical events, political climate, and social circumstances when this poem was written. Consider both the Indian subcontinent and global context.
-
-SIGNIFICANCE:
-Explain the poem's cultural importance, religious themes, and political messages in Iqbal's broader philosophy.
-
-Note: You must provide substantive information for each section based on your knowledge of Iqbal's work and historical context.''';
-
-    try {
-      debugPrint('🔄 Requesting historical context for: $title');
-      String response = await generateContent(
+      final response = await generateContent(
         prompt: prompt,
         temperature: 0.3,
+        maxTokens: 2000,
       );
 
-      // Retry with more specific prompt if first attempt fails
-      if (_isGenericResponse(response)) {
-        debugPrint('⚠️ Received generic response, retrying with enhanced prompt...');
-        response = await _retryWithEnhancedPrompt(title, content);
-      }
+      try {
+        // Try to extract JSON from the response
+        String jsonStr = response.trim();
 
-      debugPrint('📝 Raw response: $response');
+        // If response contains text before/after JSON
+        int startPos = jsonStr.indexOf('{');
+        int endPos = jsonStr.lastIndexOf('}') + 1;
 
-      final result = _parseHistoricalContextResponse(response);
-
-      // Validate content is meaningful
-      if (_isInvalidContent(result)) {
-        throw Exception('Insufficient analysis generated');
-      }
-
-      return result;
-    } catch (e) {
-      debugPrint('❌ Historical context error: $e');
-      throw Exception('Failed to analyze historical context');
-    }
-  }
-
-  static bool _isGenericResponse(String response) {
-    final genericPhrases = [
-      'not provided in the context',
-      'no information',
-      'cannot be determined',
-      'is not available',
-      'no historical context',
-    ];
-
-    return genericPhrases.any((phrase) => 
-      response.toLowerCase().contains(phrase.toLowerCase()));
-  }
-
-  static Future<String> _retryWithEnhancedPrompt(String title, String content) async {
-    final enhancedPrompt = '''As an expert on Allama Iqbal's poetry and Islamic philosophy, analyze this poem:
-
-Title: $title
-Content: $content
-
-Drawing from your knowledge of Iqbal's life (1877-1938), his philosophical development, and historical events:
-
-1. YEAR:
-- Consider when similar themes appeared in his work
-- Look at the poetic style and language usage
-- Reference related poems from the same period
-
-2. HISTORICAL_CONTEXT:
-- What was happening in British India?
-- What were the major Muslim intellectual movements?
-- How does this connect to Iqbal's philosophy?
-
-3. SIGNIFICANCE:
-- How does this poem reflect Iqbal's core messages?
-- What Islamic concepts are referenced?
-- How does it relate to his vision for Muslim society?
-
-Provide specific details for each section. Avoid generic responses.''';
-
-    return await generateContent(
-      prompt: enhancedPrompt,
-      temperature: 0.7,
-      maxTokens: 1500,
-    );
-  }
-
-  static bool _isInvalidContent(Map<String, String> result) {
-    // More lenient validation
-    if (result.isEmpty) return true;
-    
-    // Check if all values are default "not available" messages
-    if (result.values.every((v) => v.contains('not available'))) return true;
-
-    // Check for minimum content length in any section
-    return !result.values.any((value) => 
-      value.length > 20 && 
-      !value.contains('not available') &&
-      !value.contains('Information not available')
-    );
-  }
-
-  static void _updateSection(Map<String, String> result, String section, String content) {
-    final cleaned = content.trim();
-    if (cleaned.isNotEmpty) {
-      result[section] = cleaned;
-    }
-  }
-
-  static String _sanitizeUrduText(String text) {
-    // Convert Urdu numerals to English
-    final numericMap = {
-      '۰': '0', '۱': '1', '۲': '2', '۳': '3', '۴': '4',
-      '۵': '5', '۶': '6', '۷': '7', '۸': '8', '۹': '9'
-    };
-    
-    return text
-        .split('')
-        .map((char) => numericMap[char] ?? char)
-        .join('')
-        .replaceAll(RegExp(r'[^\x00-\x7F\s۰-۹آ-ی]'), '') // Keep Urdu, numbers, and basic ASCII
-        .trim();
-  }
-
-  static Map<String, String> _parseHistoricalContextResponse(String response) {
-    final result = <String, String>{};
-    
-    try {
-      // Clean response of markdown and formatting
-      final cleanedResponse = response
-          .replaceAll('**', '')
-          .replaceAll('*', '')
-          .trim();
-
-      // Extract main sections
-      String currentSection = '';
-      StringBuffer contentBuffer = StringBuffer();
-
-      for (final line in cleanedResponse.split('\n')) {
-        final trimmed = line.trim();
-        
-        if (trimmed.isEmpty) {
-          if (currentSection.isNotEmpty) {
-            result[currentSection] = contentBuffer.toString().trim();
-            contentBuffer.clear();
-          }
-          continue;
+        if (startPos >= 0 && endPos > startPos) {
+          jsonStr = jsonStr.substring(startPos, endPos);
         }
 
-        // Update section detection logic
-        if (trimmed.startsWith('YEAR:')) {
-          _updateSection(result, currentSection, contentBuffer.toString());
-          currentSection = 'year';
-          contentBuffer.clear();
-        } else if (trimmed.startsWith('HISTORICAL_CONTEXT:')) {
-          _updateSection(result, currentSection, contentBuffer.toString());
-          currentSection = 'historicalContext';
-          contentBuffer.clear();
-        } else if (trimmed.startsWith('SIGNIFICANCE:')) {
-          _updateSection(result, currentSection, contentBuffer.toString());
-          currentSection = 'significance';
-          contentBuffer.clear();
-        } else if (trimmed.startsWith('Cultural Importance:')) {
-          _updateSection(result, currentSection, contentBuffer.toString());
-          currentSection = 'culturalImportance';
-          contentBuffer.clear();
-        } else if (trimmed.startsWith('Religious Themes:')) {
-          _updateSection(result, currentSection, contentBuffer.toString());
-          currentSection = 'religiousThemes';
-          contentBuffer.clear();
-        } else if (trimmed.startsWith('Political Messages:')) {
-          _updateSection(result, currentSection, contentBuffer.toString());
-          currentSection = 'politicalMessages';
-          contentBuffer.clear();
-        } else if (trimmed.startsWith('Specific')) {
-          _updateSection(result, currentSection, contentBuffer.toString());
-          currentSection = 'factualInformation';
-          contentBuffer.clear();
-        } else if (trimmed.startsWith('Imagery:')) {
-          _updateSection(result, currentSection, contentBuffer.toString());
-          currentSection = 'imagery';
-          contentBuffer.clear();
-        } else if (trimmed.startsWith('Metaphor:')) {
-          _updateSection(result, currentSection, contentBuffer.toString());
-          currentSection = 'metaphor';
-          contentBuffer.clear();
-        } else if (trimmed.startsWith('Symbolism:')) {
-          _updateSection(result, currentSection, contentBuffer.toString());
-          currentSection = 'symbolism';
-          contentBuffer.clear();
-        } else if (trimmed.startsWith('Theme:')) {
-          _updateSection(result, currentSection, contentBuffer.toString());
-          currentSection = 'theme';
-          contentBuffer.clear();
-        } else if (currentSection.isNotEmpty) {
-          if (contentBuffer.isNotEmpty) {
-            contentBuffer.write('\n');
-          }
-          contentBuffer.write(trimmed);
-        }
-      }
+        final data = jsonDecode(jsonStr);
+        return data;
+      } catch (e) {
+        debugPrint('❌ Failed to parse historical context JSON: $e');
+        debugPrint('Raw response: $response');
 
-      // Add final section content
-      if (currentSection.isNotEmpty) {
-        result[currentSection] = contentBuffer.toString().trim();
+        // Return a structured fallback
+        return {
+          "year": "Unknown",
+          "historicalContext":
+              "Historical context could not be determined with confidence.",
+          "significance":
+              "This poem is part of Iqbal's body of work exploring themes of self-realization and Islamic revival.",
+          "culturalImportance":
+              "Iqbal's poetry is central to South Asian literary tradition and Islamic philosophical thought.",
+          "religiousThemes":
+              "Likely contains Iqbal's typical references to Islamic spirituality and philosophy.",
+          "politicalMessages":
+              "May reflect Iqbal's vision for Muslim revival and self-determination.",
+          "factualInformation":
+              "Analysis unavailable due to technical limitations.",
+          "imagery": "Analysis unavailable.",
+          "metaphor": "Analysis unavailable.",
+          "symbolism": "Analysis unavailable.",
+          "theme":
+              "Likely explores one of Iqbal's central themes of selfhood, spiritual awakening, or Muslim identity."
+        };
       }
-
-      return result;
     } catch (e) {
-      debugPrint('❌ Error parsing response: $e');
+      debugPrint('❌ Historical context generation error: $e');
       return {
-        'year': 'Year not available',
-        'historicalContext': 'Historical context not available',
-        'significance': 'Significance not available',
+        "year": "Unavailable",
+        "historicalContext": "Analysis unavailable due to technical error.",
+        "significance": "Please try again later.",
+        "culturalImportance": "",
+        "religiousThemes": "",
+        "politicalMessages": "",
+        "factualInformation": "",
+        "imagery": "",
+        "metaphor": "",
+        "symbolism": "",
+        "theme": ""
       };
     }
-  }
-
-  static void _addToResult(Map<String, String> result, String section, String content) {
-    final cleaned = content
-        .trim()
-        .replaceAll(RegExp(r'\n\s*\n'), '\n') // Remove extra newlines
-        .replaceAll(RegExp(r'\*+'), '') // Remove asterisks
-        .replaceAll(RegExp(r'^\s*[-•]\s*'), '') // Remove list markers
-        .trim();
-        
-    if (cleaned.isNotEmpty) {
-      result[section] = cleaned;
-    }
-  }
-
-  static bool _isValidHistoricalContext(Map<String, String> context) {
-    return context.values.every((value) => 
-      value.isNotEmpty && 
-      value != 'Not available' &&
-      value.length > 10
-    );
-  }
-
-  static void _addSectionContent(Map<String, String> result, String section, String content) {
-    final cleaned = content.trim();
-    if (cleaned.isNotEmpty) {
-      result[section] = cleaned;
-    }
-  }
-
-  static String _extractSection(List<String> sections, String header) {
-    final section = sections.firstWhere(
-      (s) => s.trim().startsWith(header),
-      orElse: () => '$header Not available',
-    );
-    return section.replaceFirst(header, '').trim();
-  }
-
-  static void _addSection(Map<String, String> result, String section, String content) {
-    content = content.trim();
-    if (content.isNotEmpty) {
-      result[section] = content;
-    }
-  }
-
-  static List<String> _getMissingSections(Map<String, String> analysis) {
-    final requiredSections = ['summary', 'themes', 'context', 'analysis'];
-    return requiredSections.where((section) => 
-      !analysis.containsKey(section) || 
-      analysis[section]?.isEmpty == true
-    ).toList();
-  }
-
-  static bool _isValidAnalysis(Map<String, String> analysis) {
-    final requiredSections = ['summary', 'themes', 'context', 'analysis'];
-    final isValid = requiredSections.every((section) => 
-      analysis.containsKey(section) && 
-      analysis[section]?.trim().isNotEmpty == true
-    );
-
-    if (!isValid) {
-      debugPrint('❌ Missing sections: ${_getMissingSections(analysis)}');
-    }
-
-    return isValid;
   }
 }

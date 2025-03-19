@@ -9,10 +9,49 @@ import '../historical_context_data.dart';
 class PoemRepository {
   final FirebaseFirestore _firestore;
   static const String _collection = 'poems';
+  static const String _cacheBoxName = 'poems_cache';
+  static const String _allPoemsKey = 'all_poems';
+  static const String _poemsByBookKey = 'poems_by_book_';
+  static const String _linesByPoemKey = 'lines_by_poem_';
+  static const String _searchResultsKey = 'search_results_';
+  static const Duration _cacheDuration = Duration(days: 7);
+
+  late Box _cacheBox;
+  bool _isCacheInitialized = false;
 
   PoemRepository(this._firestore);
 
+  Future<void> _initCache() async {
+    if (_isCacheInitialized) return;
+    _cacheBox = await Hive.openBox(_cacheBoxName);
+    _isCacheInitialized = true;
+  }
+
   Future<List<Poem>> getPoemsByBookId(int bookId) async {
+    await _initCache();
+    final cacheKey = '${_poemsByBookKey}$bookId';
+
+    // Try to get from cache first
+    final cachedData = _cacheBox.get(cacheKey);
+    if (cachedData != null) {
+      final cacheTime = _cacheBox.get('${cacheKey}_time');
+      if (cacheTime != null) {
+        final cachedAt = DateTime.parse(cacheTime);
+        if (DateTime.now().difference(cachedAt) < _cacheDuration) {
+          debugPrint('📦 Using cached poems for book ID: $bookId');
+          try {
+            final List<dynamic> data = cachedData;
+            return data
+                .map((item) => Poem.fromMap(Map<String, dynamic>.from(item)))
+                .toList();
+          } catch (e) {
+            debugPrint('❌ Error deserializing cached poems: $e');
+            // Continue to fetch from Firestore on cache error
+          }
+        }
+      }
+    }
+
     try {
       debugPrint('\n==== FIRESTORE QUERY ====');
       debugPrint('📥 Book ID: $bookId (${bookId.runtimeType})');
@@ -30,7 +69,7 @@ class PoemRepository {
         try {
           final data = doc.data();
           final docBookId = data['book_id'];
-          
+
           debugPrint('\nProcessing document:');
           debugPrint('- ID: ${doc.id}');
           debugPrint('- book_id: $docBookId (${docBookId.runtimeType})');
@@ -60,7 +99,6 @@ class PoemRepository {
           final poem = Poem.fromFirestore(doc);
           poems.add(poem);
           debugPrint('✅ Added poem to results');
-
         } catch (e) {
           debugPrint('❌ Error processing document: $e');
         }
@@ -69,9 +107,21 @@ class PoemRepository {
       debugPrint('\n📊 Final Results:');
       debugPrint('- Total poems: ${poems.length}');
       debugPrint('- Book IDs: ${poems.map((p) => p.bookId).toSet()}');
-      
-      return poems;
 
+      // Cache the result
+      if (poems.isNotEmpty) {
+        try {
+          final serializableData = poems.map((poem) => poem.toMap()).toList();
+          await _cacheBox.put(cacheKey, serializableData);
+          await _cacheBox.put(
+              '${cacheKey}_time', DateTime.now().toIso8601String());
+          debugPrint('📦 Cached ${poems.length} poems for book ID: $bookId');
+        } catch (e) {
+          debugPrint('❌ Error caching poems: $e');
+        }
+      }
+
+      return poems;
     } catch (e, stack) {
       debugPrint('❌ Query failed: $e\n$stack');
       return [];
@@ -79,9 +129,33 @@ class PoemRepository {
   }
 
   Future<List<Line>> getLinesByPoemId(int poemId) async {
+    await _initCache();
+    final cacheKey = '${_linesByPoemKey}$poemId';
+
+    // Try to get from cache first
+    final cachedData = _cacheBox.get(cacheKey);
+    if (cachedData != null) {
+      final cacheTime = _cacheBox.get('${cacheKey}_time');
+      if (cacheTime != null) {
+        final cachedAt = DateTime.parse(cacheTime);
+        if (DateTime.now().difference(cachedAt) < _cacheDuration) {
+          debugPrint('📦 Using cached lines for poem ID: $poemId');
+          try {
+            final List<dynamic> data = cachedData;
+            return data
+                .map((item) => Line.fromMap(Map<String, dynamic>.from(item)))
+                .toList();
+          } catch (e) {
+            debugPrint('❌ Error deserializing cached lines: $e');
+            // Continue to fetch from Firestore on cache error
+          }
+        }
+      }
+    }
+
     try {
       debugPrint('Fetching lines for poem: $poemId');
-      
+
       final snapshot = await _firestore
           .collection('lines')
           .where('poem_id', isEqualTo: poemId)
@@ -93,9 +167,23 @@ class PoemRepository {
         return [];
       }
 
-      return snapshot.docs
-          .map((doc) => Line.fromFirestore(doc))
-          .toList();
+      final lines =
+          snapshot.docs.map((doc) => Line.fromFirestore(doc)).toList();
+
+      // Cache the result
+      if (lines.isNotEmpty) {
+        try {
+          final serializableData = lines.map((line) => line.toMap()).toList();
+          await _cacheBox.put(cacheKey, serializableData);
+          await _cacheBox.put(
+              '${cacheKey}_time', DateTime.now().toIso8601String());
+          debugPrint('📦 Cached ${lines.length} lines for poem ID: $poemId');
+        } catch (e) {
+          debugPrint('❌ Error caching lines: $e');
+        }
+      }
+
+      return lines;
     } catch (e) {
       debugPrint('Error fetching lines: $e');
       return [];
@@ -103,13 +191,37 @@ class PoemRepository {
   }
 
   Future<List<Poem>> searchPoems(String query) async {
+    await _initCache();
+    final normalizedQuery = _normalizeText(query);
+    final cacheKey = '${_searchResultsKey}${normalizedQuery.hashCode}';
+
+    // Try to get from cache first
+    final cachedData = _cacheBox.get(cacheKey);
+    if (cachedData != null) {
+      final cacheTime = _cacheBox.get('${cacheKey}_time');
+      if (cacheTime != null) {
+        final cachedAt = DateTime.parse(cacheTime);
+        if (DateTime.now().difference(cachedAt) < _cacheDuration) {
+          debugPrint('📦 Using cached search results for query: $query');
+          try {
+            final List<dynamic> data = cachedData;
+            return data
+                .map((item) => Poem.fromMap(Map<String, dynamic>.from(item)))
+                .toList();
+          } catch (e) {
+            debugPrint('❌ Error deserializing cached search results: $e');
+            // Continue to fetch from Firestore on cache error
+          }
+        }
+      }
+    }
+
     try {
       debugPrint('🔍 Searching poems with query: $query');
-      
+
       // Normalize query for both English and Urdu
-      final normalizedQuery = _normalizeText(query);
-      final List<String> searchTerms = _generateSearchTerms(normalizedQuery);
-      
+      final searchTerms = _generateSearchTerms(normalizedQuery);
+
       debugPrint('Search terms: $searchTerms');
 
       // Query Firestore
@@ -133,6 +245,20 @@ class PoemRepository {
         }
       }
 
+      // Cache the results
+      if (poems.isNotEmpty) {
+        try {
+          final serializableData = poems.map((poem) => poem.toMap()).toList();
+          await _cacheBox.put(cacheKey, serializableData);
+          await _cacheBox.put(
+              '${cacheKey}_time', DateTime.now().toIso8601String());
+          debugPrint(
+              '📦 Cached ${poems.length} search results for query: $query');
+        } catch (e) {
+          debugPrint('❌ Error caching search results: $e');
+        }
+      }
+
       return poems;
     } catch (e) {
       debugPrint('Search error: $e');
@@ -141,13 +267,34 @@ class PoemRepository {
   }
 
   Future<List<Poem>> getAllPoems() async {
+    await _initCache();
+
+    // Try to get from cache first
+    final cachedData = _cacheBox.get(_allPoemsKey);
+    if (cachedData != null) {
+      final cacheTime = _cacheBox.get('${_allPoemsKey}_time');
+      if (cacheTime != null) {
+        final cachedAt = DateTime.parse(cacheTime);
+        if (DateTime.now().difference(cachedAt) < _cacheDuration) {
+          debugPrint('📦 Using cached all poems list');
+          try {
+            final List<dynamic> data = cachedData;
+            return data
+                .map((item) => Poem.fromMap(Map<String, dynamic>.from(item)))
+                .toList();
+          } catch (e) {
+            debugPrint('❌ Error deserializing cached poems: $e');
+            // Continue to fetch from Firestore on cache error
+          }
+        }
+      }
+    }
+
     try {
       debugPrint('📚 Fetching all poems');
-      
-      final snapshot = await _firestore
-          .collection('poems')
-          .orderBy('_id')
-          .get();
+
+      final snapshot =
+          await _firestore.collection('poems').orderBy('_id').get();
 
       final poems = <Poem>[];
       for (var doc in snapshot.docs) {
@@ -160,6 +307,20 @@ class PoemRepository {
       }
 
       debugPrint('📊 Loaded ${poems.length} total poems');
+
+      // Cache the result
+      if (poems.isNotEmpty) {
+        try {
+          final serializableData = poems.map((poem) => poem.toMap()).toList();
+          await _cacheBox.put(_allPoemsKey, serializableData);
+          await _cacheBox.put(
+              '${_allPoemsKey}_time', DateTime.now().toIso8601String());
+          debugPrint('📦 Cached ${poems.length} poems for all poems list');
+        } catch (e) {
+          debugPrint('❌ Error caching all poems: $e');
+        }
+      }
+
       return poems;
     } catch (e) {
       debugPrint('❌ Error: $e');
@@ -178,13 +339,20 @@ class PoemRepository {
     }
   }
 
-  Future<void> saveHistoricalContext(int poemId, Map<String, dynamic> data) async {
+  Future<void> saveHistoricalContext(
+      int poemId, Map<String, dynamic> data) async {
     try {
       final box = await Hive.openBox('historical_context');
       await box.put(poemId.toString(), data);
     } catch (e) {
       debugPrint('❌ Cache write error: $e');
     }
+  }
+
+  Future<void> clearCache() async {
+    await _initCache();
+    await _cacheBox.clear();
+    debugPrint('🧹 Poem cache cleared');
   }
 
   String _normalizeText(String text) {
@@ -204,28 +372,28 @@ class PoemRepository {
     final terms = <String>[];
     // Add original query
     terms.add(query);
-    
+
     // Add individual words
     terms.addAll(query.split(' '));
-    
+
     // Add partial matches (for Urdu)
     if (query.length > 2) {
       for (int i = 2; i <= query.length; i++) {
         terms.add(query.substring(0, i));
       }
     }
-    
+
     return terms.where((term) => term.isNotEmpty).toList();
   }
 
   bool _isRelevantMatch(Map<String, dynamic> data, String query) {
     final title = _normalizeText(data['title'] ?? '');
     final content = _normalizeText(data['data'] ?? '');
-    
-    return title.contains(query) || 
-           content.contains(query) ||
-           query.split(' ').every((word) => 
-             title.contains(word) || content.contains(word)
-           );
+
+    return title.contains(query) ||
+        content.contains(query) ||
+        query
+            .split(' ')
+            .every((word) => title.contains(word) || content.contains(word));
   }
 }

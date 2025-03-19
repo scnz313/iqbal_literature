@@ -18,16 +18,14 @@ class HistoricalContextController extends GetxController {
       error.value = '';
 
       final events = await GeminiAPI.getTimelineEvents(bookName, timePeriod);
-      
+
       if (events.isEmpty) {
         error.value = 'No timeline events available';
         return;
       }
 
-      timelineEvents.value = events
-          .map((e) => TimelineEvent.fromMap(e))
-          .toList();
-
+      timelineEvents.value =
+          events.map((e) => TimelineEvent.fromMap(e)).toList();
     } catch (e) {
       debugPrint('⚠️ Timeline error: $e');
       // Load default timeline on error
@@ -38,24 +36,26 @@ class HistoricalContextController extends GetxController {
     }
   }
 
-  Future<Map<String, String>> getHistoricalContext(String title, [String? content]) async {
+  Future<Map<String, String>> getHistoricalContext(String title,
+      [String? content]) async {
     try {
       isLoading.value = true;
       error.value = '';
 
       try {
         debugPrint('📝 Requesting historical context from Gemini...');
-        final result = await GeminiAPI.getHistoricalContext(title, content ?? '');
-        if (_isValidHistoricalContext(result)) {
-          return result;
+        final result =
+            await GeminiAPI.getHistoricalContext(title, content ?? '');
+        if (_isValidHistoricalContext(result.cast<String, String>())) {
+          return result.cast<String, String>();
         }
       } catch (e) {
         debugPrint('⚠️ Gemini failed: $e');
-        
         // Try DeepSeek as fallback
         try {
           debugPrint('📝 Falling back to DeepSeek...');
-          final result = await _deepSeekClient.getHistoricalContext(title, content);
+          final result =
+              await _deepSeekClient.getHistoricalContext(title, content);
           final parsedResult = _parseHistoricalContext(result);
           if (_isValidHistoricalContext(parsedResult)) {
             return parsedResult;
@@ -75,8 +75,8 @@ class HistoricalContextController extends GetxController {
   }
 
   bool _isValidHistoricalContext(Map<String, String> context) {
-    return context.values.every((value) => 
-      value.isNotEmpty && value != 'Not available');
+    return context.values
+        .every((value) => value.isNotEmpty && value != 'Not available');
   }
 
   String _extractSection(List<String> sections, String header) {
@@ -85,10 +85,8 @@ class HistoricalContextController extends GetxController {
         (s) => s.trim().startsWith(header),
         orElse: () => '',
       );
-      return section
-          .replaceFirst(header, '')
-          .trim()
-          .replaceAll(RegExp(r'[^\x00-\x7F\s.,!?()-]'), ''); // Keep only basic characters
+      return section.replaceFirst(header, '').trim().replaceAll(
+          RegExp(r'[^\x00-\x7F\s.,!?()-]'), ''); // Keep only basic characters
     } catch (e) {
       return 'Not available';
     }
@@ -114,7 +112,8 @@ class HistoricalContextController extends GetxController {
   Map<String, String> _getDefaultHistoricalContext() {
     return {
       'year': 'Unknown',
-      'historicalContext': 'Historical context information is currently unavailable.',
+      'historicalContext':
+          'Historical context information is currently unavailable.',
       'significance': 'Please try again later.',
     };
   }

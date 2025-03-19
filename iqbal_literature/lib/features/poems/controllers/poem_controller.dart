@@ -1,16 +1,16 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:async';
-import '../../../features/poems/models/poem.dart';
+import '../models/poem.dart';
 import '../../../data/repositories/poem_repository.dart';
-import '../../../data/services/analytics_service.dart';
-import '../../../services/analysis/text_analysis_service.dart';
 import '../../../services/share/share_bottom_sheet.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import '../../../services/analysis/analysis_bottom_sheet.dart';
+import '../../../services/analysis/text_analysis_service.dart';
+import '../../../data/services/analytics_service.dart';
 import '../../../services/api/gemini_api.dart';
 import '../../books/controllers/book_controller.dart';
-import '../../../services/analysis/analysis_bottom_sheet.dart';
 
 class PoemController extends GetxController {
   final PoemRepository _poemRepository;
@@ -18,7 +18,7 @@ class PoemController extends GetxController {
   final TextAnalysisService _textAnalysisService;
 
   PoemController(
-    this._poemRepository, 
+    this._poemRepository,
     this._analyticsService,
     this._textAnalysisService,
   );
@@ -58,49 +58,14 @@ class PoemController extends GetxController {
     }
   }
 
-  void _processArguments() {
-    debugPrint('\n==== PROCESSING NAVIGATION ARGS ====');
-    final args = Get.arguments;
-    
-    if (args == null) {
-      debugPrint('❌ No arguments received - loading all poems');
-      loadAllPoems();  // Changed to load all poems
-      return;
-    }
-
-    if (args is! Map<String, dynamic>) {
-      debugPrint('❌ Arguments not a Map - loading all poems');
-      loadAllPoems();  // Changed to load all poems
-      return;
-    }
-
-    final bookId = args['book_id'];
-    final bookName = args['book_name']?.toString();
-    final viewType = args['view_type']?.toString();
-
-    // Reset state
-    poems.clear();
-    currentBookName.value = bookName ?? '';
-    this.viewType.value = viewType ?? '';
-    error.value = '';
-
-    if (bookId != null && viewType == 'book_specific') {
-      debugPrint('✅ Loading book-specific poems');
-      loadPoemsByBookId(bookId);
-    } else {
-      debugPrint('ℹ️ Loading all poems');
-      loadAllPoems();  // Changed to load all poems
-    }
-  }
-
   Future<void> loadPoemsByBookId(dynamic bookId) async {
     try {
       debugPrint('\n==== LOADING BOOK POEMS ====');
       debugPrint('📥 Incoming book_id: $bookId (${bookId.runtimeType})');
-      
+
       isLoading.value = true;
       error.value = '';
-      poems.clear();  // Ensure list is empty
+      poems.clear(); // Ensure list is empty
 
       // Parse book ID
       final int targetBookId;
@@ -121,9 +86,9 @@ class PoemController extends GetxController {
       }
 
       final result = await _poemRepository.getPoemsByBookId(targetBookId);
-      
+
       debugPrint('📦 Repository returned ${result.length} poems');
-      
+
       if (result.isEmpty) {
         debugPrint('⚠️ No poems found');
         error.value = 'No poems found for this book';
@@ -142,7 +107,6 @@ class PoemController extends GetxController {
       poems.assignAll(validPoems);
       debugPrint('✅ Final result: ${poems.length} poems');
       debugPrint('Book IDs in list: ${poems.map((p) => p.bookId).toSet()}');
-
     } catch (e) {
       debugPrint('❌ Error: $e');
       error.value = 'Failed to load poems';
@@ -194,7 +158,7 @@ class PoemController extends GetxController {
       favorites.add(id);
     }
     _saveFavorites();
-    
+
     _analyticsService.logEvent(
       name: 'toggle_poem_favorite',
       parameters: {
@@ -219,15 +183,16 @@ class PoemController extends GetxController {
       isLoading.value = true;
       error.value = '';
       poems.clear();
-      
+
       final result = await _poemRepository.getAllPoems();
-      
+
       if (result.isEmpty) {
         error.value = 'No poems found';
       } else {
         poems.assignAll(result);
         debugPrint('✅ Loaded ${result.length} total poems');
-        debugPrint('📊 Poems from books: ${result.map((p) => p.bookId).toSet()}');
+        debugPrint(
+            '📊 Poems from books: ${result.map((p) => p.bookId).toSet()}');
       }
     } catch (e) {
       debugPrint('❌ Error loading poems: $e');
@@ -285,24 +250,28 @@ class PoemController extends GetxController {
   }
 
   Future<void> analyzePoem(String text) async {
-    // Prevent multiple simultaneous analyses
-    if (isAnalyzing.value) {
-      debugPrint('⚠️ Analysis already in progress, skipping...');
-      return;
-    }
+    if (isAnalyzing.value) return;
+
+    isAnalyzing.value = true;
 
     try {
-      isAnalyzing.value = true;
+      final connectivityResult = await Connectivity().checkConnectivity();
+      if (connectivityResult == ConnectivityResult.none) {
+        Get.snackbar(
+          'No Internet Connection',
+          'Please connect to the internet to analyze poems.',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+        return;
+      }
 
       if (Get.context != null) {
-        // Remove any existing bottom sheets first
-        Navigator.of(Get.context!).popUntil((route) => route is! ModalBottomSheetRoute);
-        
         await AnalysisBottomSheet.show(
-          Get.context!, 
+          Get.context!,
           'Poem Analysis',
           Future(() async {
             try {
+              // Use the original method signature (text only)
               final analysis = await _textAnalysisService.analyzePoem(text);
               return analysis;
             } catch (e) {
@@ -350,7 +319,7 @@ class PoemController extends GetxController {
       name: 'view_historical_context',
       parameters: {'poem_id': poem.id},
     );
-    
+
     // Show the historical context bottom sheet
     showModalBottomSheet(
       context: context,
@@ -375,7 +344,7 @@ class PoemController extends GetxController {
     try {
       debugPrint('🔄 Getting historical context for poem ID: $poemId');
       isAnalyzing.value = true;
-      
+
       final poem = poems.firstWhere((p) => p.id == poemId);
       debugPrint('📖 Found poem: ${poem.title}');
 
@@ -388,16 +357,19 @@ class PoemController extends GetxController {
 
       // Get fresh analysis from Gemini
       debugPrint('🤖 Requesting fresh analysis from Gemini...');
-      final result = await GeminiAPI.getHistoricalContext(poem.title, poem.cleanData);
-      
+      final result =
+          await GeminiAPI.getHistoricalContext(poem.title, poem.cleanData);
+
       // Cache the result for future use
       _poemRepository.saveHistoricalContext(poemId, result);
-      
+
       // Return all sections from the analysis
       return {
         'year': result['year'] ?? 'Unknown',
-        'historicalContext': result['historicalContext'] ?? 'No historical context available',
-        'significance': result['significance'] ?? 'No significance data available',
+        'historicalContext':
+            result['historicalContext'] ?? 'No historical context available',
+        'significance':
+            result['significance'] ?? 'No significance data available',
         'culturalImportance': result['culturalImportance'],
         'religiousThemes': result['religiousThemes'],
         'politicalMessages': result['politicalMessages'],
@@ -407,12 +379,12 @@ class PoemController extends GetxController {
         'symbolism': result['symbolism'],
         'theme': result['theme'],
       };
-
     } catch (e) {
       debugPrint('❌ Historical context error: $e');
       return {
         'year': 'Unavailable',
-        'historicalContext': 'Could not retrieve historical context. Please try again.',
+        'historicalContext':
+            'Could not retrieve historical context. Please try again.',
         'significance': 'Analysis temporarily unavailable.'
       };
     } finally {
@@ -420,7 +392,8 @@ class PoemController extends GetxController {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getTimeline(String bookName, [String? timePeriod]) async {
+  Future<List<Map<String, dynamic>>> getTimeline(String bookName,
+      [String? timePeriod]) async {
     try {
       isAnalyzing.value = true;
       return await GeminiAPI.getTimelineEvents(bookName, timePeriod);

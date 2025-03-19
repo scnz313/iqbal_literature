@@ -32,13 +32,13 @@ dependencies:
   device_preview: ^1.1.0
   flutter_screenutil: ^5.9.0
   google_fonts: ^6.1.0
-  flutter_svg: ^2.0.9
+  flutter_svg: ^2.0.17
   flutter_markdown: ^0.6.18+2
   shimmer: ^3.0.0
 
   # Utils
   package_info_plus: ^5.0.1
-  intl: ^0.19.0
+  intl: ^0.20.2
   url_launcher: ^6.1.14
   share_plus: ^7.2.1
   connectivity_plus: ^5.0.2
@@ -57,10 +57,10 @@ dependencies:
   hive_flutter: ^1.1.0
   cached_network_image: ^3.4.0
   timeline_tile: ^2.0.0
-  http: ^1.1.0
-  speech_to_text: ^6.6.0
   animated_text_kit: ^4.2.2
   hovering: ^1.0.4  # Update this line
+  pdf: ^3.11.3
+  # No speech_to_text dependency
 
 dev_dependencies:
   flutter_test:

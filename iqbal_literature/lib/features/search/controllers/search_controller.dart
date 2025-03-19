@@ -4,11 +4,13 @@ import '../widgets/search_result.dart';
 import '../../../data/services/search_service.dart';
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:speech_to_text/speech_to_text.dart' as stt;
+import '../../../services/speech_service_factory.dart';
+import '../../../services/speech_service_stub.dart';
 
 class SearchController extends GetxController {
   final SearchService _searchService;
-  final _speechToText = stt.SpeechToText();
+  final SpeechService _speechService =
+      SpeechServiceFactory.createSpeechService();
   final searchResults = <SearchResult>[].obs;
   final isLoading = false.obs;
   final searchController = TextEditingController();
@@ -26,30 +28,34 @@ class SearchController extends GetxController {
     debugPrint('Recent searches length: ${recentSearches.length}');
     return recentSearches.isNotEmpty;
   }
-  String get searchQuery => 
-    searchController.text.isEmpty ? urduSearchController.text : searchController.text;
+
+  String get searchQuery => searchController.text.isEmpty
+      ? urduSearchController.text
+      : searchController.text;
 
   // Update the getter to filter results based on selected type
   List<SearchResult> get filteredResults {
     if (selectedFilter.value == null) {
       return searchResults;
     }
-    return searchResults.where((result) => result.type == selectedFilter.value).toList();
+    return searchResults
+        .where((result) => result.type == selectedFilter.value)
+        .toList();
   }
 
   // Update getters to use selectedFilter
-  List<SearchResult> get bookResults => 
-    selectedFilter.value == null || selectedFilter.value == SearchResultType.book
+  List<SearchResult> get bookResults => selectedFilter.value == null ||
+          selectedFilter.value == SearchResultType.book
       ? searchResults.where((r) => r.type == SearchResultType.book).toList()
       : [];
 
-  List<SearchResult> get poemResults => 
-    selectedFilter.value == null || selectedFilter.value == SearchResultType.poem
+  List<SearchResult> get poemResults => selectedFilter.value == null ||
+          selectedFilter.value == SearchResultType.poem
       ? searchResults.where((r) => r.type == SearchResultType.poem).toList()
       : [];
 
-  List<SearchResult> get verseResults => 
-    selectedFilter.value == null || selectedFilter.value == SearchResultType.line
+  List<SearchResult> get verseResults => selectedFilter.value == null ||
+          selectedFilter.value == SearchResultType.line
       ? searchResults.where((r) => r.type == SearchResultType.line).toList()
       : [];
 
@@ -62,21 +68,8 @@ class SearchController extends GetxController {
   void onInit() {
     super.onInit();
     _loadRecentSearches();
-    _initSpeech();
     _precacheData();
     scrollController.addListener(_onScroll);
-  }
-
-  Future<void> _initSpeech() async {
-    try {
-      final available = await _speechToText.initialize(
-        onStatus: (status) => debugPrint('Speech status: $status'),
-        onError: (error) => debugPrint('Speech error: $error'),
-      );
-      debugPrint('Speech recognition available: $available');
-    } catch (e) {
-      debugPrint('Speech init error: $e');
-    }
   }
 
   Future<void> _precacheData() async {
@@ -105,7 +98,7 @@ class SearchController extends GetxController {
 
   void onSearchChanged(String query) {
     if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
-    
+
     // Sync both text fields
     final isUrduQuery = query.contains(RegExp(r'[\u0600-\u06FF]'));
     if (isUrduQuery) {
@@ -113,7 +106,7 @@ class SearchController extends GetxController {
     } else {
       if (urduSearchController.text.isNotEmpty) urduSearchController.clear();
     }
-    
+
     if (query.isEmpty) {
       searchResults.clear();
       _lastQuery = '';
@@ -144,10 +137,10 @@ class SearchController extends GetxController {
     try {
       isLoading.value = true;
       await _saveRecentSearch(query.trim());
-      
-      final results = await _searchService.search(query, limit: 50); // Increased limit
+
+      final results =
+          await _searchService.search(query, limit: 50); // Increased limit
       searchResults.assignAll(results);
-      
     } catch (e) {
       debugPrint('Search error: $e');
       searchResults.clear();
@@ -176,49 +169,63 @@ class SearchController extends GetxController {
 
   Future<void> startVoiceSearch() async {
     try {
-      if (!_speechToText.isAvailable) {
+      if (!_speechService.isAvailable) {
         Get.snackbar(
           'Not Available',
-          'Speech recognition is not available on this device',
+          'Speech recognition is not available right now',
           snackPosition: SnackPosition.BOTTOM,
         );
         return;
       }
 
-      if (!_speechToText.isListening) {
-        final available = await _speechToText.initialize();
-        if (available) {
-          isListening.value = true;
-          await _speechToText.listen(
-            onResult: (result) {
-              if (result.finalResult) {
-                final recognizedWords = result.recognizedWords;
-                if (recognizedWords.isNotEmpty) {
-                  searchController.text = recognizedWords;
-                  performSearch(recognizedWords);
-                }
-                isListening.value = false;
-              }
-            },
-            cancelOnError: true,
-            listenMode: stt.ListenMode.search,
-          );
+      if (!isListening.value) {
+        // Start listening
+        isListening.value = true;
+        final success = await _speechService.listen(
+          onResult: (text) {
+            // Check if the text contains Urdu characters
+            final isUrduText = text.contains(RegExp(r'[\u0600-\u06FF]'));
+
+            // Update the correct search controller based on text language
+            if (isUrduText) {
+              urduSearchController.text = text;
+              searchController.clear();
+            } else {
+              searchController.text = text;
+              urduSearchController.clear();
+            }
+
+            // Trigger search
+            performSearch(text);
+          },
+        );
+
+        if (!success) {
+          isListening.value = false;
           Get.snackbar(
-            'Listening',
-            'Speak now...',
+            'Voice Search Failed',
+            'Could not start voice recognition',
+            snackPosition: SnackPosition.BOTTOM,
+          );
+        } else {
+          Get.snackbar(
+            'Listening...',
+            'Speak now to search',
             snackPosition: SnackPosition.BOTTOM,
             duration: const Duration(seconds: 2),
           );
         }
       } else {
+        // Stop listening
         isListening.value = false;
-        await _speechToText.stop();
+        await _speechService.stop();
       }
     } catch (e) {
+      isListening.value = false;
       debugPrint('Voice search error: $e');
       Get.snackbar(
         'Error',
-        'Could not start voice search. Please try again.',
+        'An error occurred during voice search',
         snackPosition: SnackPosition.BOTTOM,
       );
     }

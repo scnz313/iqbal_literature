@@ -2,7 +2,7 @@ import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_analytics/firebase_analytics.dart';  // Add this import
+import 'package:firebase_analytics/firebase_analytics.dart'; // Add this import
 import 'package:flutter/foundation.dart';
 import '../../data/services/storage_service.dart';
 import '../../data/services/analytics_service.dart';
@@ -19,13 +19,13 @@ import '../../features/settings/controllers/settings_controller.dart';
 import '../controllers/font_controller.dart';
 import '../../data/services/search_service.dart';
 import '../../services/analysis/text_analysis_service.dart';
-import '../../services/cache/analysis_cache_service.dart';  // Add this import
-import '../../services/api/deepseek_api_client.dart';  // Add this import
+import '../../services/cache/analysis_cache_service.dart'; // Add this import
+import '../../services/api/deepseek_api_client.dart'; // Add this import
 
 class InitService extends GetxService {
   // Add static instance
   static InitService get to => Get.find<InitService>();
-  
+
   // Make init static
   static Future<void> init() async {
     try {
@@ -52,7 +52,8 @@ class InitService extends GetxService {
       final deepseekClient = DeepSeekApiClient();
       Get.put<DeepSeekApiClient>(deepseekClient, permanent: true);
 
-      final textAnalysisService = TextAnalysisService(deepseekClient, analysisCacheService);
+      final textAnalysisService =
+          TextAnalysisService(deepseekClient, analysisCacheService);
       Get.put<TextAnalysisService>(textAnalysisService, permanent: true);
 
       // 3. Core Services
@@ -66,35 +67,35 @@ class InitService extends GetxService {
       Get.put<AnalyticsService>(analyticsService, permanent: true);
 
       // 4. Repositories
-      final poemRepo = Get.put<PoemRepository>(PoemRepository(firestore), permanent: true);
-      final bookRepo = Get.put<BookRepository>(BookRepository(firestore), permanent: true);
+      Get.put<PoemRepository>(PoemRepository(firestore), permanent: true);
+      Get.put<BookRepository>(BookRepository(firestore), permanent: true);
 
       // 5. Controllers - Now all dependencies are available
       await Get.putAsync<PoemController>(() async {
         final controller = PoemController(
-          poemRepo,
-          analyticsService,
-          textAnalysisService,
+          Get.find<PoemRepository>(),
+          Get.find<AnalyticsService>(),
+          Get.find<TextAnalysisService>(),
         );
         return controller;
       }, permanent: true);
 
       // Initialize Providers
       Get.put<ThemeProvider>(
-        ThemeProvider(storageService),
+        ThemeProvider(Get.find<StorageService>()),
         permanent: true,
       );
-      
+
       Get.put<LocaleProvider>(
-        LocaleProvider(storageService),
+        LocaleProvider(Get.find<StorageService>()),
         permanent: true,
       );
-      
+
       Get.put<FontScaleProvider>(
-        FontScaleProvider(storageService),
+        FontScaleProvider(Get.find<StorageService>()),
         permanent: true,
       );
-      
+
       // Initialize FontController before other controllers
       Get.put<FontController>(
         FontController(Get.find<StorageService>()),
@@ -106,7 +107,7 @@ class InitService extends GetxService {
         HomeController(
           bookRepository: Get.find<BookRepository>(),
           poemRepository: Get.find<PoemRepository>(),
-          analyticsService: analyticsService,
+          analyticsService: Get.find<AnalyticsService>(),
         ),
         permanent: true,
       );
@@ -130,7 +131,7 @@ class InitService extends GetxService {
       // Initialize search services
       Get.lazyPut(() => SearchService(firestore));
       Get.lazyPut(() => SearchController(Get.find<SearchService>()));
-      
+
       // Additional initialization can go here
       await _initializeDatabase();
     } catch (e) {
@@ -142,21 +143,5 @@ class InitService extends GetxService {
   Future<void> _initializeDatabase() async {
     // Database initialization code here
     // ...existing code...
-  }
-
-  Future<void> _registerDependencies() async {
-    // Register your repositories and services here
-    // ...existing dependency registrations...
-    
-    // Register search dependencies
-    Get.lazyPut<SearchService>(
-      () => SearchService(Get.find<FirebaseFirestore>()),
-      fenix: true,
-    );
-
-    Get.lazyPut<SearchController>(
-      () => SearchController(Get.find<SearchService>()),
-      fenix: true,
-    );
   }
 }

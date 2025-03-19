@@ -15,7 +15,7 @@ class AppTheme {
       backgroundColor: AppColorSchemes.lightColorScheme.primary,
       foregroundColor: AppColorSchemes.lightColorScheme.onPrimary,
     ),
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       elevation: 2,
       shape: AppDecorations.defaultCardShape,
       margin: AppDecorations.defaultCardMargin,
@@ -41,7 +41,7 @@ class AppTheme {
       backgroundColor: AppColorSchemes.darkColorScheme.primary,
       foregroundColor: AppColorSchemes.darkColorScheme.onPrimary,
     ),
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       elevation: 2,
       shape: AppDecorations.defaultCardShape,
       margin: AppDecorations.defaultCardMargin,

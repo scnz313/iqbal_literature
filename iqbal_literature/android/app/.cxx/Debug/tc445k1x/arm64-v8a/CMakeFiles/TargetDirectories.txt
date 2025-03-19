@@ -1,0 +1,2 @@
+/Users/hashi/Desktop/projects/IqbalBook/untitled folder/iqbal/iqbal_literature/iqbal_literature/android/app/.cxx/Debug/tc445k1x/arm64-v8a/CMakeFiles/edit_cache.dir
+/Users/hashi/Desktop/projects/IqbalBook/untitled folder/iqbal/iqbal_literature/iqbal_literature/android/app/.cxx/Debug/tc445k1x/arm64-v8a/CMakeFiles/rebuild_cache.dir

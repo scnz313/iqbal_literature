@@ -12,11 +12,11 @@ class AppTranslations extends Translations {
           'light': 'Light',
           'dark': 'Dark',
           'night_mode': 'Night Mode',
-          'enable_scheduler': 'Enable Night Mode Scheduler',
+          'enable scheduler': 'Enable Night Mode Scheduler',
           'start_time': 'Start Time',
           'end_time': 'End Time',
           'version': 'Version',
-          'about_app': 'About App',
+          'about': 'About App',
           'poems': 'Poems',
           'books': 'Books',
           'home': 'Home',
@@ -48,6 +48,7 @@ class AppTranslations extends Translations {
           'popular_poems': 'Popular Poems',
           'featured_books': 'Featured Books',
           'continue_reading': 'Continue Reading',
+          'language_changed': 'Language has been changed',
         },
         'ur': {
           'settings': 'ترتیبات',
@@ -58,7 +59,7 @@ class AppTranslations extends Translations {
           'light': 'لائٹ',
           'dark': 'ڈارک',
           'night_mode': 'نائٹ موڈ',
-          'enable_scheduler': 'نائٹ موڈ شیڈولر',
+          'enable scheduler': 'نائٹ موڈ شیڈولر',
           'start_time': 'شروع کا وقت',
           'end_time': 'ختم کا وقت',
           'version': 'ورژن',
@@ -94,6 +95,7 @@ class AppTranslations extends Translations {
           'popular_poems': 'مقبول نظمیں',
           'featured_books': 'نمایاں کتابیں',
           'continue_reading': 'مطالعہ جاری رکھیں',
+          'language_changed': 'زبان تبدیل کر دی گئی ہے',
         },
       };
 }

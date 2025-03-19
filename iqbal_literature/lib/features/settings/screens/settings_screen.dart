@@ -16,7 +16,7 @@ class SettingsScreen extends GetView<SettingsController> {
     return Scaffold(
       appBar: CustomAppBar(
         title: 'settings'.tr,
-        showBackButton: false,  // Hide the back button
+        showBackButton: false, // Hide the back button
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -40,12 +40,12 @@ class SettingsScreen extends GetView<SettingsController> {
             title: 'theme'.tr,
             icon: Icons.palette,
             child: Obx(() => Column(
-              children: [
-                _buildThemeOption(context, 'System', 'system'),
-                _buildThemeOption(context, 'Light', 'light'),
-                _buildThemeOption(context, 'Dark', 'dark'),
-              ],
-            )),
+                  children: [
+                    _buildThemeOption(context, 'System', 'system'),
+                    _buildThemeOption(context, 'Light', 'light'),
+                    _buildThemeOption(context, 'Dark', 'dark'),
+                  ],
+                )),
           ),
 
           const SizedBox(height: 16),
@@ -58,17 +58,19 @@ class SettingsScreen extends GetView<SettingsController> {
             child: Column(
               children: [
                 Obx(() => SwitchListTile(
-                      title: Text('enable_scheduler'.tr),
+                      title: Text('Enable Scheduler'.tr),
                       value: controller.isNightModeScheduled.value,
                       onChanged: controller.enableNightModeSchedule,
                     )),
                 Obx(() {
-                  if (!controller.isNightModeScheduled.value) return const SizedBox();
+                  if (!controller.isNightModeScheduled.value)
+                    return const SizedBox();
                   return Column(
                     children: [
                       ListTile(
                         title: Text('start_time'.tr),
-                        trailing: Text(controller.nightModeStartTime.value.format(context)),
+                        trailing: Text(controller.nightModeStartTime.value
+                            .format(context)),
                         onTap: () async {
                           final TimeOfDay? time = await showTimePicker(
                             context: context,
@@ -81,7 +83,8 @@ class SettingsScreen extends GetView<SettingsController> {
                       ),
                       ListTile(
                         title: Text('end_time'.tr),
-                        trailing: Text(controller.nightModeEndTime.value.format(context)),
+                        trailing: Text(
+                            controller.nightModeEndTime.value.format(context)),
                         onTap: () async {
                           final TimeOfDay? time = await showTimePicker(
                             context: context,
@@ -116,7 +119,7 @@ class SettingsScreen extends GetView<SettingsController> {
                 const SizedBox(height: 8),
                 TextButton(
                   onPressed: () => _showAboutDialog(context),
-                  child: Text('about_app'.tr),
+                  child: Text('about'.tr),
                 ),
               ],
             ),
@@ -258,9 +261,9 @@ class SettingsScreen extends GetView<SettingsController> {
           // Animated title
           DefaultTextStyle(
             style: Theme.of(context).textTheme.headlineSmall!.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
             child: AnimatedTextKit(
               animatedTexts: [
                 TypewriterAnimatedText(
@@ -287,8 +290,8 @@ class SettingsScreen extends GetView<SettingsController> {
             child: Text(
               'Version ${controller.appVersion}',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.white70,
-              ),
+                    color: Colors.white70,
+                  ),
             ),
           ),
         ],
@@ -305,7 +308,7 @@ class SettingsScreen extends GetView<SettingsController> {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column( 
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -361,7 +364,7 @@ class SettingsScreen extends GetView<SettingsController> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('About Allama Iqbal & This App', 
+          Text('About Allama Iqbal & This App',
               style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 12),
           const Text(
@@ -372,26 +375,29 @@ class SettingsScreen extends GetView<SettingsController> {
     );
   }
 
-  Widget _buildDeveloperSection(BuildContext context, Animation<double> animation) {
+  Widget _buildDeveloperSection(
+      BuildContext context, Animation<double> animation) {
     return FadeTransition(
       opacity: animation,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('About the Developer', 
+          Text('About the Developer',
               style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 12),
           const ListTile(
             leading: CircleAvatar(child: Icon(Icons.person)),
             title: Text('👨💻 Hashim Hameem'),
-            subtitle: Text('A passionate full-stack & Android developer from Kashmir, merging technology with tradition to preserve cultural legacies.'),
+            subtitle: Text(
+                'A passionate full-stack & Android developer from Kashmir, merging technology with tradition to preserve cultural legacies.'),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSkillsSection(BuildContext context, Animation<double> animation) {
+  Widget _buildSkillsSection(
+      BuildContext context, Animation<double> animation) {
     return SliverToBoxAdapter(
       child: SlideTransition(
         position: Tween<Offset>(
@@ -413,8 +419,16 @@ class SettingsScreen extends GetView<SettingsController> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  'Android', 'NextJS', 'JavaScript', 'Java', 'Python', 'PHP',
-                  'Flutter', 'Dart', 'Firebase', 'AWS'
+                  'Android',
+                  'NextJS',
+                  'JavaScript',
+                  'Java',
+                  'Python',
+                  'PHP',
+                  'Flutter',
+                  'Dart',
+                  'Firebase',
+                  'AWS'
                 ].map((skill) => _buildSkillChip(context, skill)).toList(),
               ),
             ],
@@ -434,7 +448,8 @@ class SettingsScreen extends GetView<SettingsController> {
     );
   }
 
-  Widget _buildContactSection(BuildContext context, Animation<double> animation) {
+  Widget _buildContactSection(
+      BuildContext context, Animation<double> animation) {
     return SliverToBoxAdapter(
       child: SlideTransition(
         position: Tween<Offset>(
@@ -460,8 +475,8 @@ class SettingsScreen extends GetView<SettingsController> {
                 child: Text(
                   '"This app is my humble effort to honor Iqbal\'s legacy – may his words continue to light our path."',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontStyle: FontStyle.italic,
-                  ),
+                        fontStyle: FontStyle.italic,
+                      ),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -483,14 +498,17 @@ class SettingsScreen extends GetView<SettingsController> {
     );
   }
 
-  Widget _buildGradientButton(BuildContext context, {required String label, required VoidCallback onPressed}) {
+  Widget _buildGradientButton(BuildContext context,
+      {required String label, required VoidCallback onPressed}) {
     return ElevatedButton(
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        backgroundColor: Theme.of(context).colorScheme.primary, // Changed from primary
-        foregroundColor: Theme.of(context).colorScheme.onPrimary, // Changed from onPrimary
+        backgroundColor:
+            Theme.of(context).colorScheme.primary, // Changed from primary
+        foregroundColor:
+            Theme.of(context).colorScheme.onPrimary, // Changed from onPrimary
       ),
       child: Text(label),
     );
@@ -532,7 +550,8 @@ class SettingsScreen extends GetView<SettingsController> {
     );
   }
 
-  Widget _buildDeveloperInfo(BuildContext context, Animation<double> animation) {
+  Widget _buildDeveloperInfo(
+      BuildContext context, Animation<double> animation) {
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.all(24.0),
