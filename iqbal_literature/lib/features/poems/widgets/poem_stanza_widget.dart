@@ -126,6 +126,11 @@ class PoemStanzaWidget extends StatelessWidget {
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onDoubleTap: () => _handleWordDoubleTap(word, verse),
+                  onLongPress: () {
+                    debugPrint('🔍 Long press detected on word: $word');
+                    HapticFeedback.heavyImpact();
+                    onWordTap(word);
+                  },
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 2.0),
                     child: Text(

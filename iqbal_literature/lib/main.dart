@@ -3,6 +3,8 @@ import 'package:get/get.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'utils/responsive_util.dart';
 import 'config/routes/app_pages.dart';
 import 'firebase_options.dart';
 import 'services/cache/cache_service.dart';
@@ -39,6 +41,9 @@ Future<void> main() async {
   // Optimize system UI initialization
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown, // Allow both portrait orientations
+    DeviceOrientation.landscapeLeft, // Allow landscape for tablets
+    DeviceOrientation.landscapeRight,
   ]);
 
   try {
@@ -185,35 +190,42 @@ class MyApp extends StatelessWidget {
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.dark);
 
     // Use Obx to make the entire app reactive to locale changes
-    return Obx(() {
-      final localeProvider = Get.find<LocaleProvider>();
-      final themeProvider = Get.find<ThemeProvider>();
+    return ScreenUtilInit(
+        designSize:
+            const Size(ResponsiveUtil.designWidth, ResponsiveUtil.designHeight),
+        minTextAdapt: true,
+        splitScreenMode: true,
+        builder: (context, child) {
+          return Obx(() {
+            final localeProvider = Get.find<LocaleProvider>();
+            final themeProvider = Get.find<ThemeProvider>();
 
-      return GetMaterialApp(
-        title: 'app_name'.tr,
-        debugShowCheckedModeBanner: false,
-        initialRoute: Routes.home,
-        getPages: AppPages.routes,
+            return GetMaterialApp(
+              title: 'app_name'.tr,
+              debugShowCheckedModeBanner: false,
+              initialRoute: Routes.home,
+              getPages: AppPages.routes,
 
-        // Theme configuration
-        theme: AppTheme.lightTheme,
-        darkTheme: AppTheme.darkTheme,
-        themeMode: themeProvider.themeMode,
-        defaultTransition: Transition.fadeIn,
+              // Theme configuration
+              theme: AppTheme.lightTheme,
+              darkTheme: AppTheme.darkTheme,
+              themeMode: themeProvider.themeMode,
+              defaultTransition: Transition.fadeIn,
 
-        // Add translations
-        translations: AppTranslations(),
+              // Add translations
+              translations: AppTranslations(),
 
-        // Configure localization
-        locale: localeProvider.locale.value,
-        fallbackLocale: const Locale('en', 'US'),
+              // Configure localization
+              locale: localeProvider.locale.value,
+              fallbackLocale: const Locale('en', 'US'),
 
-        unknownRoute: GetPage(
-          name: '/notfound',
-          page: () => const NotFoundScreen(),
-        ),
-      );
-    });
+              unknownRoute: GetPage(
+                name: '/notfound',
+                page: () => const NotFoundScreen(),
+              ),
+            );
+          });
+        });
   }
 }
 
