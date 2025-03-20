@@ -13,11 +13,16 @@ import '../../../services/api/gemini_api.dart';
 import '../../books/controllers/book_controller.dart';
 import 'dart:math'; // Add this import for min function
 import 'dart:convert'; // Add this import for jsonDecode
+import '../../../data/repositories/note_repository.dart';
+import '../../../data/models/notes/word_note.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 class PoemController extends GetxController {
   final PoemRepository _poemRepository;
   final AnalyticsService _analyticsService;
   final TextAnalysisService _textAnalysisService;
+  final NoteRepository _noteRepository = NoteRepository();
+  late Box<WordNote> _notesBox;
 
   PoemController(
     this._poemRepository,
@@ -34,11 +39,16 @@ class PoemController extends GetxController {
   final RxDouble fontSize = 20.0.obs;
   static const double minFontSize = 16.0;
   static const double maxFontSize = 36.0;
+  final isShowingNotes = false.obs;
 
   // Add these properties at the top with other properties
   final isAnalyzing = false.obs;
   final showAnalysis = false.obs;
   final poemAnalysis = ''.obs;
+
+  // Notes related properties
+  final RxList<WordNote> currentPoemNotes = <WordNote>[].obs;
+  final RxBool isLoadingNotes = false.obs;
 
   Timer? _debounce; // Add debounce timer
 
@@ -57,6 +67,17 @@ class PoemController extends GetxController {
       }
     } else {
       loadAllPoems();
+    }
+    _initHive();
+  }
+
+  Future<void> _initHive() async {
+    if (Hive.isBoxOpen('word_notes')) {
+      _notesBox = Hive.box<WordNote>('word_notes');
+      debugPrint('📝 PoemController: using already open word_notes box');
+    } else {
+      _notesBox = await Hive.openBox<WordNote>('word_notes');
+      debugPrint('📝 PoemController: opened new word_notes box');
     }
   }
 
@@ -354,7 +375,7 @@ $literaryAnalysis''';
     final firstLine = lines.isNotEmpty ? lines.first.trim() : 'Unknown';
 
     // Identify potential themes by looking for common keywords
-    final themeKeywords = {
+    const themeKeywords = {
       'divine': 'Divine connection',
       'god': 'Relationship with God',
       'khuda': 'Relationship with God',
@@ -401,7 +422,7 @@ $literaryAnalysis''';
     final themes = detectedThemes.take(3).map((theme) => '• $theme').join('\n');
 
     return '''Summary:
-This ${lineCount > 10 ? 'longer' : 'short'} poem begins with "${firstLine}" and contains ${lineCount} verse${lineCount > 1 ? 's' : ''}. It exemplifies Iqbal's distinctive style of using poetic metaphors to convey philosophical ideas. The poem appears to explore themes typical in Iqbal's work, including spiritual awakening and social consciousness.
+This ${lineCount > 10 ? 'longer' : 'short'} poem begins with "$firstLine" and contains $lineCount verse${lineCount > 1 ? 's' : ''}. It exemplifies Iqbal's distinctive style of using poetic metaphors to convey philosophical ideas. The poem appears to explore themes typical in Iqbal's work, including spiritual awakening and social consciousness.
 
 Themes:
 $themes
@@ -771,6 +792,189 @@ You MUST respond with ONLY a valid JSON object in this exact format, with no add
     } catch (e) {
       debugPrint('❌ Analysis completely failed: $e');
       return 'Could not analyze poem: ${e.toString().substring(0, min(50, e.toString().length))}';
+    }
+  }
+
+  // Methods for personal notes feature
+
+  // Add a method to toggle notes visibility
+  void toggleNotesVisibility(bool showing) {
+    isShowingNotes.value = showing;
+    debugPrint('📝 Notes visibility set to: $showing');
+  }
+
+  // Load notes for the current poem
+  Future<void> loadPoemNotes(int poemId) async {
+    isLoadingNotes.value = true;
+    try {
+      final notes = await _noteRepository.getNotesForPoem(poemId);
+      currentPoemNotes.assignAll(notes);
+      debugPrint('📝 Loaded ${notes.length} notes for poem $poemId');
+    } catch (e) {
+      if (e.toString().contains('already open')) {
+        // If the box is already open, try to get notes directly
+        try {
+          final notes = getNotesForPoem(poemId);
+          currentPoemNotes.assignAll(notes);
+          debugPrint(
+              '📝 Used direct method to load ${notes.length} notes for poem $poemId');
+        } catch (directError) {
+          debugPrint('❌ Error loading notes directly: $directError');
+        }
+      } else {
+        debugPrint('❌ Error loading notes: $e');
+      }
+    } finally {
+      isLoadingNotes.value = false;
+    }
+  }
+
+  // Add a new note for a word
+  Future<void> addWordNote({
+    required int poemId,
+    required String word,
+    required int position,
+    required String note,
+    required String verse,
+  }) async {
+    try {
+      await _noteRepository.addNote(
+        poemId: poemId,
+        word: word,
+        position: position,
+        note: note,
+        verse: verse,
+      );
+
+      // Refresh the notes list
+      await loadPoemNotes(poemId);
+
+      // Log analytics event
+      _analyticsService.logEvent(
+        name: 'add_word_note',
+        parameters: {
+          'poem_id': poemId,
+          'word': word,
+        },
+      );
+    } catch (e) {
+      debugPrint('❌ Error adding note: $e');
+    }
+  }
+
+  // Update an existing note
+  Future<void> updateWordNote(WordNote note, String newNoteText) async {
+    try {
+      await _noteRepository.updateNote(note, newNoteText);
+
+      // Refresh the notes list
+      await loadPoemNotes(note.poemId);
+
+      // Log analytics event
+      _analyticsService.logEvent(
+        name: 'update_word_note',
+        parameters: {
+          'poem_id': note.poemId,
+          'word': note.word,
+        },
+      );
+    } catch (e) {
+      debugPrint('❌ Error updating note: $e');
+    }
+  }
+
+  // Delete a note
+  Future<void> deleteWordNote(WordNote note) async {
+    try {
+      await _noteRepository.deleteNote(note);
+
+      // Refresh the notes list
+      await loadPoemNotes(note.poemId);
+
+      // Log analytics event
+      _analyticsService.logEvent(
+        name: 'delete_word_note',
+        parameters: {
+          'poem_id': note.poemId,
+          'word': note.word,
+        },
+      );
+    } catch (e) {
+      debugPrint('❌ Error deleting note: $e');
+    }
+  }
+
+  // Check if a word has a note
+  bool hasNoteForWord(String word, int position) {
+    return currentPoemNotes
+        .any((note) => note.word == word && note.position == position);
+  }
+
+  // Get a specific note for a word
+  WordNote? getNoteForWord(String word, int position) {
+    try {
+      return currentPoemNotes
+          .firstWhere((note) => note.word == word && note.position == position);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  WordNote? getNoteByPoemId(int poemId, String word, int position) {
+    try {
+      return _notesBox.values.firstWhere(
+        (note) =>
+            note.poemId == poemId &&
+            note.word == word &&
+            note.position == position,
+      );
+    } catch (StateError) {
+      // No matching element found
+      return null;
+    } catch (e) {
+      debugPrint('Error getting note: $e');
+      return null;
+    }
+  }
+
+  List<WordNote> getNotesForPoem(int poemId) {
+    try {
+      return _notesBox.values.where((note) => note.poemId == poemId).toList();
+    } catch (e) {
+      debugPrint('Error getting notes: $e');
+      return [];
+    }
+  }
+
+  Future<void> saveNote(WordNote note) async {
+    try {
+      await _notesBox.add(note);
+    } catch (e) {
+      debugPrint('Error saving note: $e');
+    }
+  }
+
+  Future<void> deleteNote(WordNote note) async {
+    try {
+      // For HiveObjects we need to use the key
+      final int? key = _notesBox.keyAt(_notesBox.values.toList().indexOf(note));
+      if (key != null) {
+        await _notesBox.delete(key);
+      }
+    } catch (e) {
+      debugPrint('Error deleting note: $e');
+    }
+  }
+
+  Future<void> updateNote(WordNote note) async {
+    try {
+      // For HiveObjects we need to use the key
+      final int? key = _notesBox.keyAt(_notesBox.values.toList().indexOf(note));
+      if (key != null) {
+        await _notesBox.put(key, note);
+      }
+    } catch (e) {
+      debugPrint('Error updating note: $e');
     }
   }
 }

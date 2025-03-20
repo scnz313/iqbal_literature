@@ -11,7 +11,7 @@ import '../../features/favorites/screens/favorites_screen.dart';
 import '../../features/favorites/bindings/favorites_binding.dart';
 import '../../data/repositories/poem_repository.dart';
 import '../../data/services/analytics_service.dart';
-import '../../features/poems/controllers/poem_controller.dart';  // Add this import
+import '../../features/poems/controllers/poem_controller.dart'; // Add this import
 import '../../features/historical_context/screens/timeline_screen.dart';
 import '../../features/historical_context/bindings/historical_context_binding.dart';
 
@@ -45,7 +45,7 @@ class AppPages {
     GetPage(
       name: Routes.poems,
       page: () => const PoemsScreen(),
-      binding: PoemBinding(),  // Use PoemBinding instead of BindingsBuilder
+      binding: PoemBinding(), // Use PoemBinding instead of BindingsBuilder
       transition: Transition.fadeIn,
     ),
     GetPage(
@@ -65,13 +65,13 @@ class AppPages {
       transition: Transition.fadeIn,
     ),
     GetPage(
-      name: Routes.bookPoems,  // Add new route for book-specific poems
+      name: Routes.bookPoems, // Add new route for book-specific poems
       page: () => const PoemsScreen(),
       binding: PoemBinding(),
       transition: Transition.rightToLeft,
     ),
     GetPage(
-      name: Routes.favorites,  // Add new route for favorites
+      name: Routes.favorites, // Add new route for favorites
       page: () => const FavoritesScreen(),
       binding: FavoritesBinding(),
     ),

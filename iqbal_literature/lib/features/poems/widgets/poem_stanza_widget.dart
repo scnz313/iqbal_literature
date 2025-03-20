@@ -1,19 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:get/get.dart';
+import 'dart:math';
+import '../controllers/poem_controller.dart';
+import 'note_dialog.dart';
+import '../../../data/models/notes/word_note.dart';
 
 class PoemStanzaWidget extends StatelessWidget {
   final List<String> verses;
   final int startLineNumber;
   final double fontSize;
   final Function(String) onWordTap;
+  final int? poemId;
 
-  const PoemStanzaWidget({
+  PoemStanzaWidget({
     super.key,
     required this.verses,
     required this.startLineNumber,
     this.fontSize = 24,
     required this.onWordTap,
-  });
+    this.poemId,
+  }) {
+    assert(verses.isNotEmpty, 'PoemStanzaWidget must have at least one verse');
+    debugPrint('📝 Creating PoemStanzaWidget with poemId: $poemId');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -22,15 +32,15 @@ class PoemStanzaWidget extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            Theme.of(context).cardColor.withAlpha(13), // 0.05 opacity
-            Theme.of(context).cardColor.withAlpha(26), // 0.1 opacity
+            Theme.of(context).cardColor.withOpacity(0.05),
+            Theme.of(context).cardColor.withOpacity(0.1),
           ],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
         ),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Theme.of(context).dividerColor.withAlpha(26), // 0.1 opacity
+          color: Theme.of(context).dividerColor.withOpacity(0.1),
           width: 1,
         ),
       ),
@@ -45,108 +55,138 @@ class PoemStanzaWidget extends StatelessWidget {
 
   Widget _buildVerseLine(BuildContext context, String verse, int lineNumber) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
-            color: Theme.of(context).dividerColor.withAlpha(26), // 0.1 opacity
+            color: Theme.of(context).dividerColor.withOpacity(0.1),
             width: verses.last == verse ? 0 : 1,
           ),
         ),
       ),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Line number with gradient background
-            Container(
-              width: 40,
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Theme.of(context).primaryColor.withAlpha(26), // 0.1 opacity
-                    Theme.of(context).primaryColor.withAlpha(13), // 0.05 opacity
-                  ],
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                ),
-                borderRadius: BorderRadius.circular(8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Line number with gradient background
+          Container(
+            width: 32,
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Theme.of(context).primaryColor.withOpacity(0.1),
+                  Theme.of(context).primaryColor.withOpacity(0.05),
+                ],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
               ),
-              child: Center(
-                child: Text(
-                  '$lineNumber',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Theme.of(context).primaryColor.withAlpha(204), // 0.8 opacity
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Center(
+              child: Text(
+                '$lineNumber',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).primaryColor.withOpacity(0.8),
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
             ),
-            const SizedBox(width: 16),
-            
-            // Verse text with GestureDetector for double-tap
-            Expanded(
-              child: GestureDetector(
-                onDoubleTapDown: (details) {
-                  final word = _getWordAtPosition(details, context, verse);
-                  if (word.isNotEmpty) {
-                    onWordTap(word);
-                  }
-                },
-                child: SelectableText(
-                  verse,
-                  style: TextStyle(
-                    fontFamily: 'JameelNooriNastaleeq',
-                    fontSize: fontSize,
-                    height: 2.2,
-                    letterSpacing: 0.5,
-                  ),
-                  textDirection: TextDirection.rtl,
-                  textAlign: TextAlign.right,
-                  enableInteractiveSelection: true, // Enable default text selection
-                ),
-              ),
+          ),
+          const SizedBox(width: 12),
+
+          // Words container
+          Expanded(
+            child: _buildVerseText(
+                context, verse, startLineNumber + lineNumber - 1),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVerseText(BuildContext context, String verse, int verseNumber) {
+    final words = verse.split(' ').where((word) => word.isNotEmpty).toList();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      child: Directionality(
+        textDirection: TextDirection.rtl,
+        child: RichText(
+          text: TextSpan(
+            style: TextStyle(
+              fontFamily: 'JameelNooriNastaleeq',
+              fontSize: fontSize,
+              height: 1.8,
+              color: Theme.of(context).textTheme.bodyLarge?.color,
             ),
-          ],
+            children: words.map((word) {
+              return WidgetSpan(
+                alignment: PlaceholderAlignment.middle,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onDoubleTap: () => _handleWordDoubleTap(word, verse),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 2.0),
+                    child: Text(
+                      word,
+                      style: TextStyle(
+                        fontFamily: 'JameelNooriNastaleeq',
+                        fontSize: fontSize,
+                        height: 1.8,
+                        color: _hasNoteForWord(word)
+                            ? Theme.of(context).colorScheme.primary
+                            : Theme.of(context).textTheme.bodyLarge?.color,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          textAlign: TextAlign.right,
         ),
       ),
     );
   }
 
-  String _getWordAtPosition(TapDownDetails details, BuildContext context, String verse) {
-    try {
-      final RenderBox box = context.findRenderObject() as RenderBox;
-      final offset = box.globalToLocal(details.globalPosition);
-      
-      final textPainter = TextPainter(
-        text: TextSpan(
-          text: verse,
-          style: TextStyle(
-            fontFamily: 'JameelNooriNastaleeq',
-            fontSize: fontSize,
-            height: 2.2,
-            letterSpacing: 0.5,
-          ),
+  bool _hasNoteForWord(String word) {
+    final controller = Get.find<PoemController>();
+    return controller.hasNoteForWord(word, _calculateWordPosition(word, '', 0));
+  }
+
+  int _calculateWordPosition(String word, String verse, int tapPosition) {
+    // Create a unique position based on the word and its context
+    final basePosition = verse.hashCode;
+    return basePosition + tapPosition;
+  }
+
+  void _handleWordDoubleTap(String word, String verse) {
+    debugPrint('📝 Double tap detected on word: $word');
+    HapticFeedback.mediumImpact();
+    if (poemId != null) {
+      ScaffoldMessenger.of(Get.context!).showSnackBar(
+        SnackBar(
+          content: Text('Opening note editor for "$word"...'),
+          duration: const Duration(milliseconds: 800),
         ),
-        textDirection: TextDirection.rtl,
-        maxLines: null,
       );
 
-      textPainter.layout(maxWidth: box.size.width);
-      final position = textPainter.getPositionForOffset(offset);
-      
-      // Get the word at position
-      final words = verse.split(' ');
-      final wordIndex = verse.substring(0, position.offset).split(' ').length - 1;
-      
-      if (wordIndex >= 0 && wordIndex < words.length) {
-        return words[wordIndex].trim();
-      }
-    } catch (e) {
-      debugPrint('Error getting word at position: $e');
+      Future.delayed(const Duration(milliseconds: 50), () {
+        showDialog(
+          context: Get.context!,
+          builder: (context) => NoteDialog(
+            poemId: poemId!,
+            word: word,
+            position: _calculateWordPosition(word, verse, 0),
+            verse: verse,
+          ),
+        ).then((_) {
+          debugPrint('📝 Note dialog closed for word: $word');
+        });
+      });
+    } else {
+      debugPrint('❌ Cannot show note dialog: poemId is null');
     }
-    return '';
   }
 }

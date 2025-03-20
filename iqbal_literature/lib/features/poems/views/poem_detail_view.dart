@@ -5,6 +5,7 @@ import '../controllers/poem_controller.dart';
 import '../../../features/poems/models/poem.dart';
 import '../../../widgets/analysis/word_analysis_sheet.dart';
 import '../widgets/poem_stanza_widget.dart';
+import '../widgets/poem_notes_sheet.dart';
 
 class PoemDetailView extends GetView<PoemController> {
   const PoemDetailView({super.key});
@@ -81,7 +82,6 @@ class PoemDetailView extends GetView<PoemController> {
                 }
               },
               itemBuilder: (context) => [
-                // Add favorite as first item
                 PopupMenuItem<String>(
                   value: 'favorite',
                   child: Row(
@@ -105,20 +105,6 @@ class PoemDetailView extends GetView<PoemController> {
                   ),
                 ),
                 const PopupMenuDivider(),
-                _buildMenuItem(
-                  'share',
-                  Icons.share,
-                  'Share Poem',
-                  context,
-                ),
-                _buildMenuItem(
-                  'copy',
-                  Icons.copy,
-                  'Copy Text',
-                  context,
-                ),
-                const PopupMenuDivider(),
-                // Analyze option
                 PopupMenuItem<String>(
                   value: 'analyze',
                   child: Row(
@@ -137,7 +123,18 @@ class PoemDetailView extends GetView<PoemController> {
                       ),
                     ],
                   ),
-                  onTap: () => controller.showPoemAnalysis(poem.cleanData),
+                ),
+                _buildMenuItem(
+                  'share',
+                  Icons.share,
+                  'Share Poem',
+                  context,
+                ),
+                _buildMenuItem(
+                  'copy',
+                  Icons.copy,
+                  'Copy Text',
+                  context,
                 ),
                 const PopupMenuDivider(),
                 PopupMenuItem<String>(
@@ -196,6 +193,27 @@ class PoemDetailView extends GetView<PoemController> {
                     context, poem), // now rebuilds on fontSize update
               ),
             )),
+        floatingActionButton: Obx(() => controller.isShowingNotes.value
+            ? const SizedBox.shrink() // Hide FAB when notes are already showing
+            : FloatingActionButton(
+                onPressed: () {
+                  try {
+                    final poem = Get.arguments is Poem
+                        ? Get.arguments as Poem
+                        : Get.arguments is Map<String, dynamic>
+                            ? Poem.fromSearchResult(Get.arguments)
+                            : null;
+
+                    if (poem != null) {
+                      _showNotesBottomSheet(context, poem);
+                    }
+                  } catch (e) {
+                    debugPrint('Error opening notes: $e');
+                  }
+                },
+                child: const Icon(Icons.notes),
+                tooltip: 'View Notes',
+              ) as Widget),
       );
     } catch (e) {
       debugPrint('Error loading poem: $e');
@@ -265,6 +283,7 @@ class PoemDetailView extends GetView<PoemController> {
                 startLineNumber: currentLineNumber,
                 fontSize: controller.fontSize.value,
                 onWordTap: (word) => _showWordAnalysis(context, word),
+                poemId: poem.id,
               );
             }),
         ],
@@ -392,6 +411,87 @@ class PoemDetailView extends GetView<PoemController> {
   Color _getOverlayColor(bool isDark) {
     return (isDark ? Colors.black : Colors.white)
         .withAlpha((0.7 * 255).round());
+  }
+
+  void _showNotesBottomSheet(BuildContext context, Poem poem) {
+    // Check if already showing notes to prevent duplicate sheets
+    if (controller.isShowingNotes.value) {
+      debugPrint('📝 Already showing notes sheet, ignoring duplicate request');
+      return;
+    }
+
+    // Set notes as visible
+    controller.toggleNotesVisibility(true);
+
+    // Provide haptic feedback
+    HapticFeedback.mediumImpact();
+    debugPrint('Opening notes for poem: ${poem.id} from consolidated method');
+
+    // Show notes bottom sheet
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 10,
+              spreadRadius: 5,
+            ),
+          ],
+        ),
+        height: MediaQuery.of(context).size.height * 0.8,
+        child: Column(
+          children: [
+            // Handle
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(top: 10, bottom: 14),
+              decoration: BoxDecoration(
+                color: Theme.of(context).dividerColor,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            // Title and close button
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Notes for "${poem.title}"',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () {
+                      controller.toggleNotesVisibility(false);
+                      Navigator.pop(context);
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const Divider(),
+            // Content - Direct PoemNotesSheet without wrapping
+            Expanded(
+              child: PoemNotesSheet(
+                poemId: poem.id,
+                poemTitle: poem.title,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ).then((_) {
+      // Always reset state when sheet is closed
+      controller.toggleNotesVisibility(false);
+    });
   }
 }
 

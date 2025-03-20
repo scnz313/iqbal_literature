@@ -30,6 +30,8 @@ import 'config/providers/theme_provider.dart';
 import 'config/providers/locale_provider.dart';
 import 'config/providers/font_scale_provider.dart';
 import 'core/localization/app_translations.dart';
+import 'data/models/notes/word_note.dart';
+import 'data/repositories/note_repository.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -42,6 +44,11 @@ Future<void> main() async {
   try {
     // Initialize Hive for local storage
     await Hive.initFlutter();
+
+    // Register Hive adapters
+    if (!Hive.isAdapterRegistered(4)) {
+      Hive.registerAdapter(WordNoteAdapter());
+    }
 
     // Clear Hive boxes to start fresh - remove this after fixing caching issues
     try {
@@ -157,6 +164,11 @@ Future<void> main() async {
     bookRepository.getAllBooks().then((books) {
       debugPrint('📚 Preloaded ${books.length} books on app start');
     });
+
+    // Register NoteRepository as a singleton
+    if (!Get.isRegistered<NoteRepository>()) {
+      Get.put(NoteRepository(), permanent: true);
+    }
 
     runApp(const MyApp());
   } catch (e) {
