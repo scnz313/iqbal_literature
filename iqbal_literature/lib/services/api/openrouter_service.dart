@@ -60,8 +60,10 @@ class OpenRouterService {
           final analysis = await GeminiAPI.analyzePoemContent(text);
 
           // Cache and return successful analysis
-          await CacheService.cacheAnalysis(cacheKey, analysis);
-          return analysis;
+          Map<String, String> stringAnalysis =
+              analysis.map((key, value) => MapEntry(key, value.toString()));
+          await CacheService.cacheAnalysis(cacheKey, stringAnalysis);
+          return stringAnalysis;
         } catch (e) {
           debugPrint('⚠️ Gemini analysis failed: $e');
         }

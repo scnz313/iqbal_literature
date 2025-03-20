@@ -13,10 +13,10 @@ class PoemDetailView extends GetView<PoemController> {
   Widget build(BuildContext context) {
     final args = Get.arguments;
     late final Poem poem;
-    
+
     try {
       if (args is Poem) {
-        poem = args; 
+        poem = args;
       } else if (args is Map<String, dynamic>) {
         poem = Poem.fromSearchResult(args);
       } else {
@@ -28,30 +28,31 @@ class PoemDetailView extends GetView<PoemController> {
       return Scaffold(
         appBar: AppBar(
           title: Obx(() => Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.auto_stories, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      poem.title,
-                      style: TextStyle(
-                        fontFamily: 'JameelNooriNastaleeq',
-                        fontSize: controller.fontSize.value + 8, // reactive update
+                  Row(
+                    children: [
+                      const Icon(Icons.auto_stories, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          poem.title,
+                          style: TextStyle(
+                            fontFamily: 'JameelNooriNastaleeq',
+                            fontSize: controller.fontSize.value +
+                                8, // reactive update
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    ],
+                  ),
+                  Text(
+                    'From: ${controller.currentBookName}',
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
-              ),
-              Text(
-                'From: ${controller.currentBookName}',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
-          )),
+              )),
           actions: [
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert),
@@ -72,7 +73,7 @@ class PoemDetailView extends GetView<PoemController> {
                     );
                     break;
                   case 'analyze':
-                    controller.analyzePoem(poem.cleanData);
+                    controller.showPoemAnalysis(poem.cleanData);
                     break;
                   case 'favorite':
                     controller.toggleFavorite(poem);
@@ -86,19 +87,20 @@ class PoemDetailView extends GetView<PoemController> {
                   child: Row(
                     children: [
                       Obx(() => Icon(
-                        controller.isFavorite(poem) 
-                            ? Icons.favorite 
-                            : Icons.favorite_border,
-                        color: controller.isFavorite(poem) ? Colors.red : null,
-                        size: 20,
-                      )),
+                            controller.isFavorite(poem)
+                                ? Icons.favorite
+                                : Icons.favorite_border,
+                            color:
+                                controller.isFavorite(poem) ? Colors.red : null,
+                            size: 20,
+                          )),
                       const SizedBox(width: 12),
                       Obx(() => Text(
-                        controller.isFavorite(poem) 
-                            ? 'Remove from Favorites' 
-                            : 'Add to Favorites',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      )),
+                            controller.isFavorite(poem)
+                                ? 'Remove from Favorites'
+                                : 'Add to Favorites',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          )),
                     ],
                   ),
                 ),
@@ -122,13 +124,12 @@ class PoemDetailView extends GetView<PoemController> {
                   child: Row(
                     children: [
                       Obx(() => controller.isAnalyzing.value
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.analytics, size: 20)
-                      ),
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.analytics, size: 20)),
                       const SizedBox(width: 12),
                       Text(
                         'Analyze Poem',
@@ -136,20 +137,21 @@ class PoemDetailView extends GetView<PoemController> {
                       ),
                     ],
                   ),
-                  onTap: () => controller.analyzePoem(poem.cleanData),
+                  onTap: () => controller.showPoemAnalysis(poem.cleanData),
                 ),
                 const PopupMenuDivider(),
                 PopupMenuItem<String>(
                   enabled: true,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'Font Size',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                              fontWeight: FontWeight.bold,
+                            ),
                       ),
                       const SizedBox(height: 8),
                       Row(
@@ -158,21 +160,23 @@ class PoemDetailView extends GetView<PoemController> {
                           MaterialButton(
                             minWidth: 0,
                             padding: const EdgeInsets.all(8),
-                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
                             shape: const CircleBorder(),
                             onPressed: controller.decreaseFontSize,
                             child: const Icon(Icons.remove, size: 20),
                           ),
                           const SizedBox(width: 4),
                           Obx(() => Text(
-                            '${controller.fontSize.value.toInt()}',
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          )),
+                                '${controller.fontSize.value.toInt()}',
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              )),
                           const SizedBox(width: 4),
                           MaterialButton(
                             minWidth: 0,
                             padding: const EdgeInsets.all(8),
-                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
                             shape: const CircleBorder(),
                             onPressed: controller.increaseFontSize,
                             child: const Icon(Icons.add, size: 20),
@@ -187,10 +191,11 @@ class PoemDetailView extends GetView<PoemController> {
           ],
         ),
         body: Obx(() => SingleChildScrollView(
-          child: SafeArea(
-            child: _buildPoemContent(context, poem), // now rebuilds on fontSize update
-          ),
-        )),
+              child: SafeArea(
+                child: _buildPoemContent(
+                    context, poem), // now rebuilds on fontSize update
+              ),
+            )),
       );
     } catch (e) {
       debugPrint('Error loading poem: $e');
@@ -251,7 +256,7 @@ class PoemDetailView extends GetView<PoemController> {
           }),
 
           // Stanzas with line numbers
-          for (final stanza in stanzas) 
+          for (final stanza in stanzas)
             Builder(builder: (context) {
               final currentLineNumber = lineNumber;
               lineNumber += stanza.length;
@@ -267,7 +272,8 @@ class PoemDetailView extends GetView<PoemController> {
     );
   }
 
-  Widget _buildAnalysisSection(BuildContext context, Map<String, String> analysis) {
+  Widget _buildAnalysisSection(
+      BuildContext context, Map<String, String> analysis) {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 16),
       padding: const EdgeInsets.all(16),
@@ -312,14 +318,22 @@ class PoemDetailView extends GetView<PoemController> {
 
   void _showWordAnalysis(BuildContext context, String word) async {
     try {
-      // Use controller's analyzeWord method instead of OpenRouter directly
       final analysis = await controller.analyzeWord(word);
       if (context.mounted) {
         showModalBottomSheet(
           context: context,
           isScrollControlled: true,
+          enableDrag: true,
+          useSafeArea: true,
+          isDismissible: true,
           backgroundColor: Colors.transparent,
-          builder: (context) => WordAnalysisSheet(analysis: analysis),
+          builder: (context) => DraggableScrollableSheet(
+            initialChildSize: 0.8,
+            minChildSize: 0.6,
+            maxChildSize: 0.95,
+            builder: (_, scrollController) =>
+                WordAnalysisSheet(analysis: analysis),
+          ),
         );
       }
     } catch (e) {
@@ -336,17 +350,16 @@ class PoemDetailView extends GetView<PoemController> {
   List<List<String>> _splitIntoStanzas(String text) {
     return text
         .split('\n\n')
-        .map((stanza) => stanza
-            .split('\n')
-            .where((line) => line.trim().isNotEmpty)
-            .toList())
+        .map((stanza) =>
+            stanza.split('\n').where((line) => line.trim().isNotEmpty).toList())
         .where((stanza) => stanza.isNotEmpty)
         .toList();
   }
 
   String _formatPoemText(String text) {
     // Split into lines and clean up
-    final lines = text.split('\n')
+    final lines = text
+        .split('\n')
         .map((line) => line.trim())
         .where((line) => line.isNotEmpty)
         .toList();
@@ -465,7 +478,7 @@ class StanzaWidget extends StatelessWidget {
 
   int _calculateStartLineNumber() {
     if (stanzaNumber == 1) return 1;
-    
+
     // Calculate based on previous stanzas
     int lineCount = 0;
     for (int i = 0; i < stanzaNumber - 1; i++) {

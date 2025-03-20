@@ -95,99 +95,213 @@ class GeminiAPI {
   }
 
   /// Generate poem analysis using specific prompt format
-  static Future<Map<String, String>> analyzePoemContent(String text) async {
+  static Future<Map<String, dynamic>> analyzePoemContent(String text) async {
     try {
-      final prompt = '''Analyze this poem and provide clear sections:
+      // Check if we're configured and if not, return a local fallback
+      if (!isConfigured) {
+        debugPrint(
+            '⚠️ Gemini API not configured, using local fallback analysis');
+        return _getLocalFallbackAnalysis(text);
+      }
+
+      final prompt =
+          '''Analyze this poem and provide a scholarly, insightful interpretation:
 $text
 
-Format response EXACTLY as follows (keep the exact section headers):
+Format your response EXACTLY with these section headings and content style:
 SUMMARY:
-[2-3 sentences summarizing the poem]
+Write a clear, concise summary of the poem's main ideas and message (2-3 sentences).
 
 THEMES:
-• [Theme 1]
-• [Theme 2]
-• [Theme 3]
+• List the main theme with brief explanation
+• List another important theme with brief explanation
+• List a third significant theme if present
 
 HISTORICAL CONTEXT:
-[Brief historical background]
+Provide relevant historical and cultural background that helps understand the poem's context and significance. Mention Iqbal's philosophical ideas that are relevant to this work.
 
 ANALYSIS:
-[Literary analysis]''';
+Analyze the poem's literary techniques, symbolic meanings, and deeper philosophical implications. Highlight particularly significant lines or imagery and explain their meaning.''';
 
       final response = await generateContent(
         prompt: prompt,
-        temperature: 0.7,
+        temperature: 0.4, // Lower temperature for more consistent responses
         maxTokens: 1000,
       );
 
       debugPrint('📝 Raw Gemini Response: $response');
 
-      // Clean markdown formatting and normalize sections
-      final cleanedResponse =
-          response.replaceAll('**', '').replaceAll('*', '').trim();
+      // Create a new Map<String, dynamic> with explicit type
+      final Map<String, dynamic> typedResult = <String, dynamic>{};
 
-      final Map<String, String> result = {};
-      var currentSection = '';
-      var sectionContent = StringBuffer();
+      try {
+        // Clean markdown formatting and parse sections
+        final cleanedResponse =
+            response.replaceAll('**', '').replaceAll('*', '').trim();
 
-      final lines = cleanedResponse.split('\n');
-      for (var line in lines) {
-        line = line.trim();
+        // Extract sections using patterns
+        final summaryPattern = RegExp(r'SUMMARY:([^THEMES]+)', dotAll: true);
+        final themesPattern = RegExp(r'THEMES:([^HISTORICAL]+)', dotAll: true);
+        final contextPattern =
+            RegExp(r'HISTORICAL CONTEXT:([^ANALYSIS]+)', dotAll: true);
+        final analysisPattern = RegExp(r'ANALYSIS:(.+)', dotAll: true);
 
-        if (line.isEmpty) {
-          if (currentSection.isNotEmpty && sectionContent.isNotEmpty) {
-            result[currentSection] = sectionContent.toString().trim();
-            sectionContent.clear();
-          }
-          continue;
-        }
+        // Extract content for each section
+        final summaryMatch = summaryPattern.firstMatch(cleanedResponse);
+        final themesMatch = themesPattern.firstMatch(cleanedResponse);
+        final contextMatch = contextPattern.firstMatch(cleanedResponse);
+        final analysisMatch = analysisPattern.firstMatch(cleanedResponse);
 
-        if (line.startsWith('SUMMARY:')) {
-          currentSection = 'summary';
-          continue;
-        } else if (line.startsWith('THEMES:')) {
-          currentSection = 'themes';
-          continue;
-        } else if (line.startsWith('HISTORICAL CONTEXT:')) {
-          currentSection = 'context';
-          continue;
-        } else if (line.startsWith('ANALYSIS:')) {
-          currentSection = 'analysis';
-          continue;
-        }
+        // Add each section to the result map
+        typedResult['summary'] =
+            summaryMatch?.group(1)?.trim() ?? 'Summary not available';
+        typedResult['themes'] =
+            themesMatch?.group(1)?.trim() ?? 'Themes not available';
+        typedResult['context'] = contextMatch?.group(1)?.trim() ??
+            'Historical context not available';
+        typedResult['analysis'] = analysisMatch?.group(1)?.trim() ??
+            'Literary analysis not available';
 
-        if (currentSection.isNotEmpty) {
-          if (sectionContent.isNotEmpty) {
-            sectionContent.write('\n');
-          }
-          sectionContent.write(line);
-        }
-      }
-
-      // Add the last section
-      if (currentSection.isNotEmpty && sectionContent.isNotEmpty) {
-        result[currentSection] = sectionContent.toString().trim();
-      }
-
-      debugPrint('📊 Parsed sections: ${result.keys.join(', ')}');
-      for (var entry in result.entries) {
-        if (entry.value.isNotEmpty) {
+        // Log the extracted sections
+        debugPrint('📊 Extracted sections:');
+        typedResult.forEach((key, value) {
           debugPrint(
-              '${entry.key}: ${entry.value.substring(0, min(50, entry.value.length))}...');
+              '$key: ${value.toString().substring(0, min(50, value.toString().length))}...');
+        });
+      } catch (parsingError) {
+        debugPrint('⚠️ Error parsing response: $parsingError');
+
+        // If parsing fails, use a simpler approach - split by headers
+        final lines = response.split('\n');
+        String currentSection = '';
+        String sectionContent = '';
+
+        for (final line in lines) {
+          if (line.startsWith('SUMMARY:')) {
+            currentSection = 'summary';
+            continue;
+          } else if (line.startsWith('THEMES:')) {
+            if (currentSection.isNotEmpty) {
+              typedResult[currentSection] = sectionContent.trim();
+              sectionContent = '';
+            }
+            currentSection = 'themes';
+            continue;
+          } else if (line.contains('HISTORICAL CONTEXT:')) {
+            if (currentSection.isNotEmpty) {
+              typedResult[currentSection] = sectionContent.trim();
+              sectionContent = '';
+            }
+            currentSection = 'context';
+            continue;
+          } else if (line.startsWith('ANALYSIS:')) {
+            if (currentSection.isNotEmpty) {
+              typedResult[currentSection] = sectionContent.trim();
+              sectionContent = '';
+            }
+            currentSection = 'analysis';
+            continue;
+          }
+
+          if (currentSection.isNotEmpty) {
+            sectionContent += line + '\n';
+          }
+        }
+
+        // Add the last section
+        if (currentSection.isNotEmpty) {
+          typedResult[currentSection] = sectionContent.trim();
         }
       }
 
-      if (!_isValidAnalysis(result)) {
-        debugPrint('⚠️ Invalid analysis format - missing sections');
-        throw Exception('Invalid response format - missing sections');
+      // Ensure we have all required sections
+      if (!typedResult.containsKey('summary')) {
+        typedResult['summary'] = 'Summary not available';
+      }
+      if (!typedResult.containsKey('themes')) {
+        typedResult['themes'] = 'Themes not available';
+      }
+      if (!typedResult.containsKey('context')) {
+        typedResult['context'] = 'Historical context not available';
+      }
+      if (!typedResult.containsKey('analysis')) {
+        typedResult['analysis'] = 'Literary analysis not available';
       }
 
-      return result;
+      // Final validation - ensure all values are strings
+      typedResult.forEach((key, value) {
+        if (!(value is String)) {
+          typedResult[key] = value.toString();
+        }
+      });
+
+      // One more safety check - ensure the keys match what the application expects
+      final List<String> expectedKeys = [
+        'summary',
+        'themes',
+        'context',
+        'analysis'
+      ];
+      for (final key in expectedKeys) {
+        if (!typedResult.containsKey(key) || typedResult[key] == null) {
+          typedResult[key] = key == 'summary'
+              ? 'Summary not available'
+              : key == 'themes'
+                  ? 'Themes not available'
+                  : key == 'context'
+                      ? 'Historical context not available'
+                      : 'Literary analysis not available';
+        }
+      }
+
+      // Log the final result
+      debugPrint(
+          '✅ Final Gemini response structure: ${typedResult.keys.join(', ')}');
+
+      return typedResult;
     } catch (e) {
       debugPrint('❌ Gemini analysis error: $e');
-      rethrow;
+      // Check if it's a network error
+      if (e.toString().contains('Failed host lookup') ||
+          e.toString().contains('SocketException') ||
+          e.toString().contains('network') ||
+          e.toString().contains('internet') ||
+          e.toString().contains('timeout')) {
+        debugPrint('📱 Using offline fallback analysis due to network error');
+        return _getLocalFallbackAnalysis(text);
+      }
+
+      // Return a default analysis result rather than throwing
+      return <String, dynamic>{
+        'summary': 'Unable to analyze poem at this time.',
+        'themes': 'Analysis currently unavailable.',
+        'context': 'Please check your internet connection and try again later.',
+        'analysis': 'We encountered an error during analysis: $e'
+      };
     }
+  }
+
+  /// Provides a basic local analysis when APIs are unavailable
+  static Map<String, dynamic> _getLocalFallbackAnalysis(String text) {
+    // Very basic analysis based on text length and patterns
+    final String firstLine = text.split('\n').first.trim();
+    final int lineCount =
+        text.split('\n').where((line) => line.trim().isNotEmpty).length;
+
+    return <String, dynamic>{
+      'summary':
+          'This poem contains $lineCount lines and begins with "$firstLine". '
+              'A detailed analysis is currently unavailable due to network connectivity issues.',
+      'themes':
+          '• Self-reflection and introspection\n• Nature and spirituality\n• Human experience',
+      'context':
+          'Iqbal\'s poetry often explores themes of self-discovery, spiritual awakening, '
+              'and the relationship between humanity and divine purpose. '
+              'His work is deeply influenced by Islamic philosophy and Persian literary traditions.',
+      'analysis': 'The poem employs typical Iqbalian literary devices including metaphor, symbolism, '
+          'and philosophical reflection. The structure follows traditional Urdu/Persian poetic forms. '
+          'For a more detailed analysis, please try again when internet connectivity is restored.'
+    };
   }
 
   static Future<List<Map<String, dynamic>>> getTimelineEvents(String bookName,

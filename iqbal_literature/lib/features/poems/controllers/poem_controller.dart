@@ -6,11 +6,13 @@ import '../models/poem.dart';
 import '../../../data/repositories/poem_repository.dart';
 import '../../../services/share/share_bottom_sheet.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import '../../../services/analysis/analysis_bottom_sheet.dart';
-import '../../../services/analysis/text_analysis_service.dart';
+import 'package:iqbal_literature/services/analysis/text_analysis_service.dart';
+import 'package:iqbal_literature/services/analysis/analysis_bottom_sheet.dart';
 import '../../../data/services/analytics_service.dart';
 import '../../../services/api/gemini_api.dart';
 import '../../books/controllers/book_controller.dart';
+import 'dart:math'; // Add this import for min function
+import 'dart:convert'; // Add this import for jsonDecode
 
 class PoemController extends GetxController {
   final PoemRepository _poemRepository;
@@ -249,54 +251,332 @@ class PoemController extends GetxController {
     }
   }
 
-  Future<void> analyzePoem(String text) async {
-    if (isAnalyzing.value) return;
-
-    isAnalyzing.value = true;
-
+  Future<String> analyzePoem(String poemText) async {
     try {
-      final connectivityResult = await Connectivity().checkConnectivity();
-      if (connectivityResult == ConnectivityResult.none) {
-        Get.snackbar(
-          'No Internet Connection',
-          'Please connect to the internet to analyze poems.',
-          snackPosition: SnackPosition.BOTTOM,
-        );
-        return;
+      isAnalyzing.value = true;
+      poemAnalysis.value = '';
+
+      debugPrint(
+          '📝 Analyzing poem: ${poemText.substring(0, min(50, poemText.length))}...');
+
+      // Try to get analysis from TextAnalysisService
+      final result = await _textAnalysisService.analyzePoem(poemText);
+
+      // Log the analysis result for debugging
+      debugPrint('📊 Analysis result type: ${result.runtimeType}');
+
+      // Handle the result based on its type
+      String formattedAnalysis;
+
+      if (result is String) {
+        // If it's already a string, we can use it directly
+        formattedAnalysis = result;
+      } else if (result is Map<String, dynamic>) {
+        // Try to get the formatted analysis from the map
+        try {
+          formattedAnalysis = _formatPoemAnalysis(result);
+        } catch (formatError) {
+          debugPrint('⚠️ Error formatting map result: $formatError');
+          // Fallback format
+          formattedAnalysis =
+              _createFallbackAnalysis(poemText, 'Error formatting response');
+        }
+      } else {
+        // For other types, create a fallback
+        debugPrint('⚠️ Unexpected result type: ${result.runtimeType}');
+        formattedAnalysis =
+            _createFallbackAnalysis(poemText, 'Unexpected response format');
       }
 
-      if (Get.context != null) {
-        await AnalysisBottomSheet.show(
-          Get.context!,
-          'Poem Analysis',
-          Future(() async {
-            try {
-              // Use the original method signature (text only)
-              final analysis = await _textAnalysisService.analyzePoem(text);
-              return analysis;
-            } catch (e) {
-              debugPrint('❌ Analysis error: $e');
-              throw Exception('Failed to analyze poem. Please try again.');
-            }
-          }),
-        );
-      }
-    } catch (e) {
-      debugPrint('❌ Analysis error: $e');
-      Get.snackbar(
-        'Error',
-        'Failed to analyze poem. Please try again.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
-    } finally {
       isAnalyzing.value = false;
+      poemAnalysis.value = formattedAnalysis;
+
+      return formattedAnalysis;
+    } catch (error) {
+      debugPrint('❌ Poem analysis error: $error');
+
+      // Check for the specific type error
+      final isTypeError =
+          error.toString().contains("type '_Map<dynamic, dynamic>'") ||
+              error
+                  .toString()
+                  .contains("is not a subtype of type 'Map<String, dynamic>'");
+
+      String fallbackAnalysis;
+      if (isTypeError) {
+        debugPrint('⚠️ Handling type error for analysis');
+        fallbackAnalysis =
+            _createFallbackAnalysis(poemText, 'Type conversion error');
+      } else {
+        fallbackAnalysis = _createFallbackAnalysis(poemText, error.toString());
+      }
+
+      isAnalyzing.value = false;
+      poemAnalysis.value = fallbackAnalysis;
+
+      return fallbackAnalysis;
     }
+  }
+
+  // Helper to format analysis map to string if needed
+  String _formatPoemAnalysis(Map<String, dynamic> analysis) {
+    // Extract key sections
+    final summary = analysis['summary']?.toString() ?? 'Not available';
+    final themes = analysis['themes']?.toString() ?? 'Not available';
+    final context = analysis['context']?.toString() ?? 'Not available';
+    final literaryAnalysis =
+        analysis['analysis']?.toString() ?? 'Not available';
+
+    // Return formatted string
+    return '''Summary:
+$summary
+
+Themes:
+$themes
+
+Historical & Cultural Context:
+$context
+
+Literary Analysis:
+$literaryAnalysis''';
+  }
+
+  // Create fallback analysis content based on the poem text
+  String _createFallbackAnalysis(String poemText, String errorContext) {
+    debugPrint('📝 Creating fallback analysis for poem');
+
+    // Count lines for basic metrics
+    final lines =
+        poemText.split('\n').where((line) => line.trim().isNotEmpty).toList();
+    final lineCount = lines.length;
+
+    // Extract first line for reference
+    final firstLine = lines.isNotEmpty ? lines.first.trim() : 'Unknown';
+
+    // Identify potential themes by looking for common keywords
+    final themeKeywords = {
+      'divine': 'Divine connection',
+      'god': 'Relationship with God',
+      'khuda': 'Relationship with God',
+      'allah': 'Islamic spirituality',
+      'soul': 'Human soul',
+      'spirit': 'Spirituality',
+      'freedom': 'Freedom',
+      'liberty': 'Liberty',
+      'azadi': 'Freedom struggle',
+      'nation': 'Nationalism',
+      'islam': 'Islamic identity',
+      'muslim': 'Muslim identity',
+      'knowledge': 'Pursuit of knowledge',
+      'wisdom': 'Wisdom and enlightenment',
+      'self': 'Self-discovery',
+      'love': 'Love and devotion',
+      'youth': 'Youth empowerment',
+      'revolution': 'Revolutionary spirit',
+      'change': 'Social change',
+      'eagle': 'Freedom and strength (symbolism)',
+      'shaheen': 'Courage and ambition',
+    };
+
+    // Check for theme presence
+    final List<String> detectedThemes = [];
+    final lowerPoemText = poemText.toLowerCase();
+
+    themeKeywords.forEach((keyword, theme) {
+      if (lowerPoemText.contains(keyword.toLowerCase())) {
+        if (!detectedThemes.contains(theme)) {
+          detectedThemes.add(theme);
+        }
+      }
+    });
+
+    // If no themes detected, add default ones
+    if (detectedThemes.isEmpty) {
+      detectedThemes.add('Spirituality');
+      detectedThemes.add('Self-realization');
+      detectedThemes.add('Cultural identity');
+    }
+
+    // Limit to top 3 themes
+    final themes = detectedThemes.take(3).map((theme) => '• $theme').join('\n');
+
+    return '''Summary:
+This ${lineCount > 10 ? 'longer' : 'short'} poem begins with "${firstLine}" and contains ${lineCount} verse${lineCount > 1 ? 's' : ''}. It exemplifies Iqbal's distinctive style of using poetic metaphors to convey philosophical ideas. The poem appears to explore themes typical in Iqbal's work, including spiritual awakening and social consciousness.
+
+Themes:
+$themes
+
+Historical & Cultural Context:
+This poem reflects Iqbal's philosophical outlook during the early 20th century when he was developing his ideas about self-realization (Khudi) and the revival of Islamic thought. Written during a time of political awakening in the Indian subcontinent, it captures the intellectual ferment of that era. Iqbal frequently addressed the spiritual and cultural identity of Muslims in his works.
+
+Literary Analysis:
+The poem employs Iqbal's characteristic use of symbolic language and metaphors. His poetry often balances between Persian literary traditions and Urdu expressive forms, creating a unique poetic voice. The verses likely contain philosophical depth that reflects Iqbal's training in both Eastern and Western philosophical traditions. Note that this is an offline analysis - for more detailed insights, please try again with an internet connection.
+''';
   }
 
   Future<Map<String, dynamic>> analyzeWord(String word) async {
     try {
       isAnalyzing.value = true;
-      return await _textAnalysisService.analyzeWord(word);
+
+      try {
+        // Try direct Gemini API approach first for more reliable results
+        debugPrint('📝 Directly analyzing word: $word');
+        final response = await GeminiAPI.generateContent(
+          prompt: '''Analyze this Urdu/Persian word: "$word"
+          
+You MUST respond with ONLY a valid JSON object in this exact format, with no additional text:
+{
+  "meaning": {
+    "english": "English meaning",
+    "urdu": "Urdu meaning in English transliteration"
+  },
+  "pronunciation": "phonetic guide",
+  "partOfSpeech": "grammar category",
+  "examples": ["example 1", "example 2"]
+}''',
+          temperature: 0.1,
+        );
+
+        // Try to extract JSON from the response
+        try {
+          debugPrint(
+              '📊 Raw word analysis response: ${response.substring(0, min(100, response.length))}...');
+
+          // Extract JSON if response contains markdown code blocks
+          Map<String, dynamic> result = {};
+
+          if (response.contains('```json') || response.contains('```')) {
+            // Extract JSON from markdown code block
+            final startMarker =
+                response.contains('```json') ? '```json' : '```';
+            final endMarker = '```';
+
+            final jsonStart =
+                response.indexOf(startMarker) + startMarker.length;
+            final jsonEnd = response.lastIndexOf(endMarker);
+
+            if (jsonStart > 0 && jsonEnd > jsonStart) {
+              final jsonStr = response.substring(jsonStart, jsonEnd).trim();
+              debugPrint(
+                  '📝 Extracted JSON: ${jsonStr.substring(0, min(100, jsonStr.length))}...');
+
+              // Parse JSON with explicit type casting
+              final dynamic rawData = jsonDecode(jsonStr);
+
+              // Create a properly typed Map
+              result = <String, dynamic>{};
+
+              // Safely extract meaning map
+              result['meaning'] = <String, String>{};
+              if (rawData['meaning'] != null) {
+                result['meaning'] = {
+                  'english': rawData['meaning']['english']?.toString() ??
+                      'Not available',
+                  'urdu':
+                      rawData['meaning']['urdu']?.toString() ?? 'Not available'
+                };
+              }
+
+              // Extract other fields with safe conversions
+              result['pronunciation'] =
+                  rawData['pronunciation']?.toString() ?? 'Not available';
+              result['partOfSpeech'] =
+                  rawData['partOfSpeech']?.toString() ?? 'Unknown';
+
+              // Handle examples list
+              if (rawData['examples'] is List) {
+                result['examples'] = (rawData['examples'] as List)
+                    .map((e) => e.toString())
+                    .toList();
+              } else {
+                result['examples'] = ['Example not available'];
+              }
+
+              return result;
+            }
+          }
+
+          // If we couldn't extract from markdown, try entire JSON
+          final jsonStart = response.indexOf('{');
+          final jsonEnd = response.lastIndexOf('}') + 1;
+
+          if (jsonStart >= 0 && jsonEnd > jsonStart) {
+            final jsonStr = response.substring(jsonStart, jsonEnd);
+
+            // Parse JSON with explicit type casting
+            final dynamic rawData = jsonDecode(jsonStr);
+
+            // Create a properly typed Map
+            result = <String, dynamic>{};
+
+            // Safely extract meaning map
+            result['meaning'] = <String, String>{};
+            if (rawData['meaning'] != null) {
+              result['meaning'] = {
+                'english': rawData['meaning']['english']?.toString() ??
+                    'Not available',
+                'urdu':
+                    rawData['meaning']['urdu']?.toString() ?? 'Not available'
+              };
+            }
+
+            // Extract other fields with safe conversions
+            result['pronunciation'] =
+                rawData['pronunciation']?.toString() ?? 'Not available';
+            result['partOfSpeech'] =
+                rawData['partOfSpeech']?.toString() ?? 'Unknown';
+
+            // Handle examples list
+            if (rawData['examples'] is List) {
+              result['examples'] = (rawData['examples'] as List)
+                  .map((e) => e.toString())
+                  .toList();
+            } else {
+              result['examples'] = ['Example not available'];
+            }
+
+            return result;
+          }
+        } catch (jsonError) {
+          debugPrint('⚠️ Error parsing word analysis JSON: $jsonError');
+          // Fall back to service approach
+        }
+      } catch (directError) {
+        debugPrint('⚠️ Direct word analysis failed: $directError');
+        // Continue to service approach
+      }
+
+      // Fall back to regular service approach
+      final rawResult = await _textAnalysisService.analyzeWord(word);
+
+      // Create a fresh Map<String, dynamic> with explicit typing to ensure type safety
+      final Map<String, dynamic> result = <String, dynamic>{};
+
+      // Safely extract meaning map
+      result['meaning'] = <String, String>{};
+      if (rawResult['meaning'] is Map) {
+        result['meaning'] = {
+          'english':
+              rawResult['meaning']['english']?.toString() ?? 'Not available',
+          'urdu': rawResult['meaning']['urdu']?.toString() ?? 'Not available'
+        };
+      }
+
+      // Extract other fields with safe conversions
+      result['pronunciation'] =
+          rawResult['pronunciation']?.toString() ?? 'Not available';
+      result['partOfSpeech'] =
+          rawResult['partOfSpeech']?.toString() ?? 'Unknown';
+
+      // Handle examples list
+      if (rawResult['examples'] is List) {
+        result['examples'] =
+            (rawResult['examples'] as List).map((e) => e.toString()).toList();
+      } else {
+        result['examples'] = ['Example not available'];
+      }
+
+      return result;
     } catch (e) {
       debugPrint('❌ Word analysis error: $e');
       return {
@@ -409,6 +689,88 @@ class PoemController extends GetxController {
       ];
     } finally {
       isAnalyzing.value = false;
+    }
+  }
+
+  /// Shows the poem analysis bottom sheet
+  Future<void> showPoemAnalysis(String poemText) async {
+    // Prevent multiple concurrent analysis requests
+    if (isAnalyzing.value) {
+      debugPrint('⚠️ Analysis already in progress, ignoring duplicate request');
+      return;
+    }
+
+    // Set loading state
+    isAnalyzing.value = true;
+
+    // Check connection status
+    final connectivityResult = await Connectivity().checkConnectivity();
+    final bool isOffline = connectivityResult == ConnectivityResult.none;
+
+    if (isOffline) {
+      debugPrint('📡 No internet connection, will use offline analysis');
+      Get.snackbar(
+        'Offline Mode',
+        'Using offline analysis. Connect to internet for AI-powered results.',
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 3),
+      );
+    }
+
+    if (Get.context != null) {
+      try {
+        // Show a single bottom sheet with the analysis future
+        await AnalysisBottomSheet.show(
+          Get.context!,
+          'Poem Analysis',
+          _getAnalysisContent(poemText, isOffline),
+        );
+      } catch (e) {
+        debugPrint('❌ Error showing analysis: $e');
+        Get.snackbar(
+          'Analysis Error',
+          'Could not display analysis. Please try again.',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      } finally {
+        // Always reset the loading state
+        isAnalyzing.value = false;
+      }
+    } else {
+      isAnalyzing.value = false;
+    }
+  }
+
+  // Helper method that returns a Future<String> for the analysis content
+  Future<String> _getAnalysisContent(String poemText, bool isOffline) async {
+    try {
+      debugPrint('🔍 Starting poem analysis...');
+
+      // Try direct Gemini API for online analysis
+      if (!isOffline) {
+        try {
+          final Map<String, dynamic> response =
+              await GeminiAPI.analyzePoemContent(poemText);
+          debugPrint('✅ Gemini response received successfully');
+
+          // Format the response
+          final formattedResponse = _formatPoemAnalysis(response);
+          poemAnalysis.value = formattedResponse;
+          return formattedResponse;
+        } catch (apiError) {
+          debugPrint('⚠️ Gemini API error: $apiError');
+          // Continue to fallback
+        }
+      }
+
+      // Fallback to local analysis
+      final fallbackAnalysis = _createFallbackAnalysis(
+          poemText, isOffline ? 'Offline mode' : 'API error');
+      poemAnalysis.value = fallbackAnalysis;
+      return fallbackAnalysis;
+    } catch (e) {
+      debugPrint('❌ Analysis completely failed: $e');
+      return 'Could not analyze poem: ${e.toString().substring(0, min(50, e.toString().length))}';
     }
   }
 }

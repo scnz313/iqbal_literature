@@ -91,17 +91,29 @@ class AnalysisCacheService {
     final cachedData = _cacheBox.get(key);
 
     if (cachedData != null) {
-      final Map<String, dynamic> data = Map<String, dynamic>.from(cachedData);
+      try {
+        final Map<String, dynamic> data = Map<String, dynamic>.from(cachedData);
 
-      // Check if cache is still valid
-      if (data.containsKey('timestamp')) {
-        final timestamp = DateTime.parse(data['timestamp']);
-        if (DateTime.now().difference(timestamp) < _cacheDuration) {
-          debugPrint('📦 Using cached word analysis for "$word"');
-          // Add to history
-          await _addToHistory(word, 'word', data['timestamp']);
-          return data['analysis'];
+        // Check if cache is still valid
+        if (data.containsKey('timestamp')) {
+          final timestamp = DateTime.parse(data['timestamp']);
+          if (DateTime.now().difference(timestamp) < _cacheDuration) {
+            debugPrint('📦 Using cached word analysis for "$word"');
+            // Add to history
+            await _addToHistory(word, 'word', data['timestamp']);
+
+            // Make sure we return a proper Map<String, dynamic>
+            if (data['analysis'] is Map) {
+              return Map<String, dynamic>.from(data['analysis']);
+            } else {
+              debugPrint('⚠️ Cached word analysis has invalid format');
+              return null;
+            }
+          }
         }
+      } catch (e) {
+        debugPrint('❌ Error retrieving cached word analysis: $e');
+        return null;
       }
     }
 
@@ -131,17 +143,29 @@ class AnalysisCacheService {
     final cachedData = _cacheBox.get(key);
 
     if (cachedData != null) {
-      final Map<String, dynamic> data = Map<String, dynamic>.from(cachedData);
+      try {
+        final Map<String, dynamic> data = Map<String, dynamic>.from(cachedData);
 
-      // Check if cache is still valid
-      if (data.containsKey('timestamp')) {
-        final timestamp = DateTime.parse(data['timestamp']);
-        if (DateTime.now().difference(timestamp) < _cacheDuration) {
-          debugPrint('📦 Using cached poem analysis for poem #$poemId');
-          // Add to history
-          await _addToHistory('Poem #$poemId', 'poem', data['timestamp']);
-          return data['analysis'];
+        // Check if cache is still valid
+        if (data.containsKey('timestamp')) {
+          final timestamp = DateTime.parse(data['timestamp']);
+          if (DateTime.now().difference(timestamp) < _cacheDuration) {
+            debugPrint('📦 Using cached poem analysis for poem #$poemId');
+            // Add to history
+            await _addToHistory('Poem #$poemId', 'poem', data['timestamp']);
+
+            // Make sure we return a proper Map<String, dynamic>
+            if (data['analysis'] is Map) {
+              return Map<String, dynamic>.from(data['analysis']);
+            } else {
+              debugPrint('⚠️ Cached poem analysis has invalid format');
+              return null;
+            }
+          }
         }
+      } catch (e) {
+        debugPrint('❌ Error retrieving cached poem analysis: $e');
+        return null;
       }
     }
 
@@ -171,18 +195,32 @@ class AnalysisCacheService {
     final cachedData = _cacheBox.get(key);
 
     if (cachedData != null) {
-      final Map<String, dynamic> data = Map<String, dynamic>.from(cachedData);
+      try {
+        final Map<String, dynamic> data = Map<String, dynamic>.from(cachedData);
 
-      // Check if cache is still valid
-      if (data.containsKey('timestamp')) {
-        final timestamp = DateTime.parse(data['timestamp']);
-        if (DateTime.now().difference(timestamp) < _cacheDuration) {
-          debugPrint('📦 Using cached timeline for book #$bookId');
-          // Add to history
-          await _addToHistory(
-              'Book #$bookId Timeline', 'timeline', data['timestamp']);
-          return List<Map<String, dynamic>>.from(data['timeline']);
+        // Check if cache is still valid
+        if (data.containsKey('timestamp')) {
+          final timestamp = DateTime.parse(data['timestamp']);
+          if (DateTime.now().difference(timestamp) < _cacheDuration) {
+            debugPrint('📦 Using cached timeline for book #$bookId');
+            // Add to history
+            await _addToHistory(
+                'Book #$bookId Timeline', 'timeline', data['timestamp']);
+
+            // Make sure we return a proper List<Map<String, dynamic>>
+            if (data['timeline'] is List) {
+              return (data['timeline'] as List)
+                  .map((item) => Map<String, dynamic>.from(item))
+                  .toList();
+            } else {
+              debugPrint('⚠️ Cached timeline has invalid format');
+              return null;
+            }
+          }
         }
+      } catch (e) {
+        debugPrint('❌ Error retrieving cached timeline: $e');
+        return null;
       }
     }
 
