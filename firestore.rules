@@ -1,0 +1,42 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow read access to books collection
+    match /books/{bookId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Allow read access to poems collection with queries
+    match /poems/{poemId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Allow read access to poem lines
+    match /lines/{lineId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Allow read access to daily verses
+    match /daily_verses/{verseId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Block all other collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions for logging
+    function isValidQuery() {
+      return request.query.limit <= 100
+          && (request.path.matches('/poems/.*')
+              || request.path.matches('/books/.*')
+              || request.path.matches('/lines/.*')
+              || request.path.matches('/daily_verses/.*'));
+    }
+  }
+}

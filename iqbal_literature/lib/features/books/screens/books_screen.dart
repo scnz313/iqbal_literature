@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/book_controller.dart';
-import '../widgets/book_tile.dart';  // Updated import
-import '../../../data/models/book/book.dart';  // Import the Book model
+import '../widgets/book_tile.dart'; // Updated import
+import '../../../data/models/book/book.dart'; // Import the Book model
 
 class BooksScreen extends GetView<BookController> {
   const BooksScreen({super.key});
@@ -31,7 +31,9 @@ class BooksScreen extends GetView<BookController> {
           itemCount: controller.books.length,
           itemBuilder: (context, index) {
             final book = controller.books[index];
-            return BookTile(book: book);  // Remove GestureDetector since BookTile handles interactions
+            return BookTile(
+                book:
+                    book); // Remove GestureDetector since BookTile handles interactions
           },
         );
       }),

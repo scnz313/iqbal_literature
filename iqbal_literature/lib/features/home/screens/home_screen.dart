@@ -33,40 +33,40 @@ class HomeScreen extends GetView<HomeController> {
         ],
       ),
       body: Obx(() => IndexedStack(
-        index: controller.currentIndex.value,
-        children: const [
-          BooksScreen(),
-          PoemsScreen(),
-          SearchScreen(),
-          SettingsScreen(),
-        ],
-      )),
+            index: controller.currentIndex.value,
+            children: const [
+              BooksScreen(),
+              PoemsScreen(),
+              SearchScreen(),
+              SettingsScreen(),
+            ],
+          )),
       bottomNavigationBar: Obx(() => NavigationBar(
-        selectedIndex: controller.currentIndex.value,
-        onDestinationSelected: controller.changePage,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.book_outlined),
-            selectedIcon: Icon(Icons.book),
-            label: 'Books',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.library_books_outlined),
-            selectedIcon: Icon(Icons.library_books),
-            label: 'Poems',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.search_outlined),
-            selectedIcon: Icon(Icons.search),
-            label: 'Search',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
-            label: 'Settings',
-          ),
-        ],
-      )),
+            selectedIndex: controller.currentIndex.value,
+            onDestinationSelected: controller.changePage,
+            destinations: const [
+              NavigationDestination(
+                icon: Icon(Icons.book_outlined),
+                selectedIcon: Icon(Icons.book),
+                label: 'Books',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.library_books_outlined),
+                selectedIcon: Icon(Icons.library_books),
+                label: 'Poems',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.search_outlined),
+                selectedIcon: Icon(Icons.search),
+                label: 'Search',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.settings_outlined),
+                selectedIcon: Icon(Icons.settings),
+                label: 'Settings',
+              ),
+            ],
+          )),
     );
   }
 }

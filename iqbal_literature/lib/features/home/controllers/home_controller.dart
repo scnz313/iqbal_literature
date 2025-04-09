@@ -30,13 +30,6 @@ class HomeController extends GetxController {
 
   final currentIndex = 0.obs;
 
-  final List<Widget> pages = [
-    const BooksScreen(),
-    const PoemsScreen(),
-    const SearchScreen(),
-    const SettingsScreen(),
-  ];
-
   @override
   void onInit() {
     super.onInit();
@@ -111,10 +104,9 @@ class HomeController extends GetxController {
     try {
       isLoading.value = true;
       error.value = '';
-      
+
       final allBooks = await _bookRepository.getAllBooks();
       books.assignAll(allBooks);
-      
     } catch (e) {
       error.value = e.toString();
     } finally {

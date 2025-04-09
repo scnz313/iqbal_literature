@@ -203,7 +203,7 @@ class MyApp extends StatelessWidget {
             return GetMaterialApp(
               title: 'app_name'.tr,
               debugShowCheckedModeBanner: false,
-              initialRoute: Routes.home,
+              initialRoute: AppPages.initial,
               getPages: AppPages.routes,
 
               // Theme configuration

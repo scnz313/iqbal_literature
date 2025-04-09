@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/book_controller.dart';
 import '../../../data/models/book/book.dart';
+import '../../daily_verse/controllers/daily_verse_controller.dart';
 
 class BookTile extends StatelessWidget {
   final Book book;
@@ -11,7 +12,8 @@ class BookTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = Get.find<BookController>();
-    
+    final dailyVerseController = Get.find<DailyVerseController>();
+
     return InkWell(
       onTap: () => controller.onBookTap(book),
       onLongPress: () => _showBookOptions(context, controller),
@@ -55,16 +57,14 @@ class BookTile extends StatelessWidget {
             textDirection: TextDirection.rtl,
           ),
           trailing: Obx(() => IconButton(
-            icon: Icon(
-              controller.isFavorite(book) 
-                  ? Icons.favorite 
-                  : Icons.favorite_border,
-              color: controller.isFavorite(book)
-                  ? Colors.red
-                  : null,
-            ),
-            onPressed: () => controller.toggleFavorite(book),
-          )),
+                icon: Icon(
+                  controller.isFavorite(book)
+                      ? Icons.favorite
+                      : Icons.favorite_border,
+                  color: controller.isFavorite(book) ? Colors.red : null,
+                ),
+                onPressed: () => controller.toggleFavorite(book),
+              )),
         ),
       ),
     );
@@ -79,6 +79,16 @@ class BookTile extends StatelessWidget {
       builder: (context) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Daily Verse option
+          ListTile(
+            leading: const Icon(Icons.auto_awesome),
+            title: const Text('Daily Wisdom'),
+            subtitle: const Text('Get AI-powered insights from this book'),
+            onTap: () {
+              Navigator.pop(context);
+              Get.toNamed('/daily-verse');
+            },
+          ),
           // Timeline option
           ListTile(
             leading: const Icon(Icons.timeline),
@@ -91,8 +101,8 @@ class BookTile extends StatelessWidget {
           // Favorites option
           ListTile(
             leading: Icon(
-              controller.isFavorite(book) 
-                  ? Icons.favorite 
+              controller.isFavorite(book)
+                  ? Icons.favorite
                   : Icons.favorite_border,
               color: controller.isFavorite(book) ? Colors.red : null,
             ),

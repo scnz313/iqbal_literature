@@ -25,7 +25,7 @@ class Poem extends Equatable {
   factory Poem.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
     try {
       final data = doc.data() as Map<String, dynamic>;
-      
+
       // Validate required fields
       final rawId = data['_id'];
       final rawBookId = data['book_id'];
@@ -113,25 +113,29 @@ class Poem extends Equatable {
     int? year,
     String? historicalContext,
     String? wikipediaUrl,
-  }) => Poem(
-    id: id ?? this.id,
-    bookId: bookId ?? this.bookId,
-    title: title ?? this.title,
-    data: data ?? this.data,
-    year: year ?? this.year,
-    historicalContext: historicalContext ?? this.historicalContext,
-    wikipediaUrl: wikipediaUrl ?? this.wikipediaUrl,
-  );
+  }) =>
+      Poem(
+        id: id ?? this.id,
+        bookId: bookId ?? this.bookId,
+        title: title ?? this.title,
+        data: data ?? this.data,
+        year: year ?? this.year,
+        historicalContext: historicalContext ?? this.historicalContext,
+        wikipediaUrl: wikipediaUrl ?? this.wikipediaUrl,
+      );
 
   String get cleanData {
     // Remove line numbers and clean up the text
     final lines = data.split('\n');
-    final cleanedLines = lines.map((line) {
-      // Remove line numbers (e.g., "1. " or "10. ")
-      final cleaned = line.replaceAll(RegExp(r'^\d+\.\s*'), '');
-      return cleaned.trim();
-    }).where((line) => line.isNotEmpty).toList();
-    
+    final cleanedLines = lines
+        .map((line) {
+          // Remove line numbers (e.g., "1. " or "10. ")
+          final cleaned = line.replaceAll(RegExp(r'^\d+\.\s*'), '');
+          return cleaned.trim();
+        })
+        .where((line) => line.isNotEmpty)
+        .toList();
+
     return cleanedLines.join('\n');
   }
 
@@ -143,10 +147,8 @@ class Poem extends Equatable {
 
   @override
   bool operator ==(Object other) =>
-    identical(this, other) ||
-    other is Poem &&
-    other.id == id &&
-    other.bookId == bookId;
+      identical(this, other) ||
+      other is Poem && other.id == id && other.bookId == bookId;
 
   @override
   int get hashCode => id.hashCode ^ bookId.hashCode;

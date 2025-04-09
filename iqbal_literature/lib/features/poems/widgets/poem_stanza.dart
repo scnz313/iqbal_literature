@@ -21,15 +21,28 @@ class PoemStanza extends StatefulWidget {
 class _PoemStanzaState extends State<PoemStanza> {
   @override
   Widget build(BuildContext context) {
+    final words = widget.stanza.split(' ');
+    // Note: For RTL languages like Urdu/Persian, we don't need to reverse the words
+    // as the Directionality widget with TextDirection.rtl will handle the display correctly
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Stanza'),
       ),
       body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // ... existing code ...
-          ],
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Directionality(
+            textDirection: TextDirection.rtl,
+            child: Wrap(
+              alignment: WrapAlignment.start,
+              spacing: 8.0,
+              runSpacing: 4.0,
+              children: words
+                  .map((word) => _buildWord(word, words.indexOf(word)))
+                  .toList(),
+            ),
+          ),
         ),
       ),
     );

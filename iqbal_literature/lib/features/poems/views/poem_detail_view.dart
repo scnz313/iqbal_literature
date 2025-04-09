@@ -214,6 +214,7 @@ class PoemDetailView extends GetView<PoemController> {
                 child: const Icon(Icons.notes),
                 tooltip: 'View Notes',
               ) as Widget),
+        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       );
     } catch (e) {
       debugPrint('Error loading poem: $e');

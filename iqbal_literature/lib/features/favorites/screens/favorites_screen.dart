@@ -90,7 +90,7 @@ class FavoritesScreen extends StatelessWidget {
         itemBuilder: itemBuilder,
       );
     }
-    
+
     // For narrow screens, show list
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -121,4 +121,3 @@ class FavoritesScreen extends StatelessWidget {
     );
   }
 }
-

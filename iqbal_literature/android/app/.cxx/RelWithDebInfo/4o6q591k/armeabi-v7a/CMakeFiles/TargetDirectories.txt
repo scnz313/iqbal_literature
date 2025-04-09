@@ -1,0 +1,2 @@
+/Users/hashi/Desktop/projects/IqbalBook/iqbal_literature/iqbal_literature/android/app/.cxx/RelWithDebInfo/4o6q591k/armeabi-v7a/CMakeFiles/edit_cache.dir
+/Users/hashi/Desktop/projects/IqbalBook/iqbal_literature/iqbal_literature/android/app/.cxx/RelWithDebInfo/4o6q591k/armeabi-v7a/CMakeFiles/rebuild_cache.dir

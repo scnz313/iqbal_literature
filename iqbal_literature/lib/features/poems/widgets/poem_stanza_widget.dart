@@ -66,8 +66,9 @@ class PoemStanzaWidget extends StatelessWidget {
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center, // Center-align content
         children: [
-          // Line number with gradient background
+          // Line number with gradient background (on the left)
           Container(
             width: 32,
             padding: const EdgeInsets.symmetric(vertical: 4),
@@ -93,9 +94,10 @@ class PoemStanzaWidget extends StatelessWidget {
               ),
             ),
           ),
+
           const SizedBox(width: 12),
 
-          // Words container
+          // Words container (will appear centered)
           Expanded(
             child: _buildVerseText(
                 context, verse, startLineNumber + lineNumber - 1),
@@ -106,6 +108,55 @@ class PoemStanzaWidget extends StatelessWidget {
   }
 
   Widget _buildVerseText(BuildContext context, String verse, int verseNumber) {
+    // Split the verse into words but maintain proper RTL order
+    final words = verse.split(' ').where((word) => word.isNotEmpty).toList();
+    // No need to reverse words - Directionality will handle RTL correctly
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      child: Directionality(
+        textDirection: TextDirection.rtl,
+        child: Center(
+          child: Wrap(
+            alignment: WrapAlignment.center,
+            direction: Axis.horizontal,
+            spacing: 4.0,
+            runSpacing: 8.0,
+            children: words.map((word) {
+              return GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onDoubleTap: () => _handleWordDoubleTap(word, verse),
+                onLongPress: () {
+                  debugPrint('🔍 Long press detected on word: $word');
+                  HapticFeedback.heavyImpact();
+                  onWordTap(word);
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2.0),
+                  child: Text(
+                    word,
+                    style: TextStyle(
+                      fontFamily: 'JameelNooriNastaleeq',
+                      fontSize: fontSize,
+                      height: 1.8,
+                      color: _hasNoteForWord(word)
+                          ? Theme.of(context).colorScheme.primary
+                          : Theme.of(context).textTheme.bodyLarge?.color,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // This is the old implementation that processes words individually
+  // Keeping for reference, but not using it
+  Widget _buildVerseTextOld(
+      BuildContext context, String verse, int verseNumber) {
     final words = verse.split(' ').where((word) => word.isNotEmpty).toList();
 
     return Padding(

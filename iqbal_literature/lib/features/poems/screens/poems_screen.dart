@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import '../controllers/poem_controller.dart';
 import '../../../features/poems/models/poem.dart';
-import '../../../services/api/gemini_api.dart';  // Update import
+import '../../../services/api/gemini_api.dart'; // Update import
 import '../../historical_context/widgets/historical_context_sheet.dart';
 
 class PoemsScreen extends StatefulWidget {
@@ -20,7 +20,7 @@ class _PoemsScreenState extends State<PoemsScreen> {
   void initState() {
     super.initState();
     final args = Get.arguments as Map<String, dynamic>?;
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (args == null) {
         debugPrint('📚 Loading all poems (direct access)');
@@ -28,7 +28,7 @@ class _PoemsScreenState extends State<PoemsScreen> {
       } else {
         final bookId = args['book_id'];
         final viewType = args['view_type'];
-        
+
         if (bookId != null && viewType == 'book_specific') {
           debugPrint('📚 Loading poems for book: $bookId');
           controller.loadPoemsByBookId(bookId);
@@ -44,7 +44,7 @@ class _PoemsScreenState extends State<PoemsScreen> {
     final args = Get.arguments as Map<String, dynamic>?;
     final bookId = args?['book_id'];
     debugPrint('Error widget args: $args');
-    
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -153,7 +153,8 @@ class PoemCard extends StatelessWidget {
                   poem.title,
                   textAlign: TextAlign.right,
                   maxLines: 1, // Limit to 2 lines
-                  overflow: TextOverflow.ellipsis, // Add ellipsis (...) for overflow
+                  overflow:
+                      TextOverflow.ellipsis, // Add ellipsis (...) for overflow
                   style: const TextStyle(
                     fontFamily: 'JameelNooriNastaleeq',
                     fontSize: 20,
@@ -200,7 +201,8 @@ class PoemCard extends StatelessWidget {
               }),
               title: Obx(() {
                 final isFav = Get.find<PoemController>().isFavorite(poem);
-                return Text(isFav ? 'Remove from Favorites' : 'Add to Favorites');
+                return Text(
+                    isFav ? 'Remove from Favorites' : 'Add to Favorites');
               }),
               onTap: () {
                 Navigator.pop(context);

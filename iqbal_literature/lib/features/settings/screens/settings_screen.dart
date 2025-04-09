@@ -345,7 +345,7 @@ class SettingsScreen extends GetView<SettingsController> {
           borderRadius: BorderRadius.circular(12),
         ),
         child: const Text(
-          'Khudi ko kar buland itna ke har taqdir se pehle,\nKhuda bande se khud pooche, bata teri raza kya hai?',
+          'aaj kyun seene hamare sharar-abad nahi\nhum wahi sokhta-samaan hain tujhe yaad nahi',
           style: TextStyle(
             fontFamily: 'JameelNooriNastaleeq',
             fontSize: 20,

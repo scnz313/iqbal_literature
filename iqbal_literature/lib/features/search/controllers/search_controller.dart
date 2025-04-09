@@ -13,54 +13,59 @@ class SearchController extends GetxController {
       SpeechServiceFactory.createSpeechService();
   final searchResults = <SearchResult>[].obs;
   final isLoading = false.obs;
-  final searchController = TextEditingController();
-  final urduSearchController = TextEditingController();
+  final TextEditingController searchController = TextEditingController();
+  final TextEditingController urduSearchController = TextEditingController();
   Timer? _debounceTimer;
   String _lastQuery = '';
   final isListening = false.obs;
+
+  // Support for responsive UI
+  final isUrduMode = false.obs;
 
   // Simplify the recent searches handling
   final recentSearches = <String>[].obs;
   final selectedFilter = Rx<SearchResultType?>(null);
   final showScrollToTop = false.obs;
-  final scrollController = ScrollController();
-  bool get showRecentSearches {
-    debugPrint('Recent searches length: ${recentSearches.length}');
-    return recentSearches.isNotEmpty;
-  }
+  final ScrollController scrollController = ScrollController();
 
-  String get searchQuery => searchController.text.isEmpty
-      ? urduSearchController.text
-      : searchController.text;
+  // Use RxString for searchQuery to properly track changes
+  final RxString _searchQuery = ''.obs;
+  String get searchQuery => _searchQuery.value;
 
-  // Update the getter to filter results based on selected type
-  List<SearchResult> get filteredResults {
-    if (selectedFilter.value == null) {
-      return searchResults;
+  // Filtered results
+  final Rx<List<SearchResult>> _filteredResults = Rx<List<SearchResult>>([]);
+  List<SearchResult> get filteredResults => _filteredResults.value;
+
+  // Specific result type getters
+  List<SearchResult> get bookResults {
+    if (selectedFilter.value == SearchResultType.book ||
+        selectedFilter.value == null) {
+      return searchResults
+          .where((r) => r.type == SearchResultType.book)
+          .toList();
     }
-    return searchResults
-        .where((result) => result.type == selectedFilter.value)
-        .toList();
+    return [];
   }
 
-  // Update getters to use selectedFilter
-  List<SearchResult> get bookResults => selectedFilter.value == null ||
-          selectedFilter.value == SearchResultType.book
-      ? searchResults.where((r) => r.type == SearchResultType.book).toList()
-      : [];
+  List<SearchResult> get poemResults {
+    if (selectedFilter.value == SearchResultType.poem ||
+        selectedFilter.value == null) {
+      return searchResults
+          .where((r) => r.type == SearchResultType.poem)
+          .toList();
+    }
+    return [];
+  }
 
-  List<SearchResult> get poemResults => selectedFilter.value == null ||
-          selectedFilter.value == SearchResultType.poem
-      ? searchResults.where((r) => r.type == SearchResultType.poem).toList()
-      : [];
-
-  List<SearchResult> get verseResults => selectedFilter.value == null ||
-          selectedFilter.value == SearchResultType.line
-      ? searchResults.where((r) => r.type == SearchResultType.line).toList()
-      : [];
-
-  // Minimum query length for search
-  static const int _minQueryLength = 2;
+  List<SearchResult> get verseResults {
+    if (selectedFilter.value == SearchResultType.line ||
+        selectedFilter.value == null) {
+      return searchResults
+          .where((r) => r.type == SearchResultType.line)
+          .toList();
+    }
+    return [];
+  }
 
   SearchController(this._searchService);
 
@@ -69,7 +74,64 @@ class SearchController extends GetxController {
     super.onInit();
     _loadRecentSearches();
     _precacheData();
+
+    // Set up listeners
+    searchController.addListener(_updateSearchQuery);
+    urduSearchController.addListener(_updateSearchQuery);
     scrollController.addListener(_onScroll);
+
+    // Initialize language mode based on device locale
+    final locale = Get.locale;
+    if (locale != null) {
+      // If device locale is Urdu, start with Urdu mode
+      isUrduMode.value = locale.languageCode == 'ur';
+    }
+
+    // Load any saved language preference
+    SharedPreferences.getInstance().then((prefs) {
+      isUrduMode.value = prefs.getBool('isUrduSearchMode') ?? isUrduMode.value;
+    });
+
+    // Set up worker to update filtered results when the filter changes
+    ever(selectedFilter, (_) {
+      searchResults.refresh();
+      update();
+    });
+
+    // Set up worker to detect language changes
+    ever(isUrduMode, (_) {
+      update();
+    });
+
+    // Set up worker to track recent searches changes
+    ever(recentSearches, (_) {
+      update();
+    });
+  }
+
+  void _updateSearchQuery() {
+    final query = searchController.text.isEmpty
+        ? urduSearchController.text
+        : searchController.text;
+    _searchQuery.value = query;
+
+    // Auto-detect language based on input
+    detectLanguage(query);
+  }
+
+  void detectLanguage(String text) {
+    if (text.isEmpty) return;
+
+    final isUrduText = _containsUrdu(text);
+    if (isUrduText && !isUrduMode.value) {
+      isUrduMode.value = true;
+    } else if (!isUrduText && isUrduMode.value) {
+      isUrduMode.value = false;
+    }
+  }
+
+  bool _containsUrdu(String text) {
+    return text.contains(RegExp(r'[\u0600-\u06FF]'));
   }
 
   Future<void> _precacheData() async {
@@ -94,17 +156,39 @@ class SearchController extends GetxController {
     searchController.clear();
     urduSearchController.clear();
     searchResults.clear();
+    _searchQuery.value = '';
+    update();
   }
 
   void onSearchChanged(String query) {
     if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
 
-    // Sync both text fields
-    final isUrduQuery = query.contains(RegExp(r'[\u0600-\u06FF]'));
+    // Auto-detect language
+    final isUrduQuery = _containsUrdu(query);
+
+    // Sync controllers based on language
     if (isUrduQuery) {
-      if (searchController.text.isNotEmpty) searchController.clear();
+      if (searchController.text.isNotEmpty) {
+        searchController.clear();
+      }
+
+      // Only update if different to avoid infinite loop
+      if (urduSearchController.text != query) {
+        urduSearchController.text = query;
+      }
+
+      isUrduMode.value = true;
     } else {
-      if (urduSearchController.text.isNotEmpty) urduSearchController.clear();
+      if (urduSearchController.text.isNotEmpty) {
+        urduSearchController.clear();
+      }
+
+      // Only update if different to avoid infinite loop
+      if (searchController.text != query) {
+        searchController.text = query;
+      }
+
+      isUrduMode.value = false;
     }
 
     if (query.isEmpty) {
@@ -114,7 +198,7 @@ class SearchController extends GetxController {
     }
 
     // Don't search if query is too short, unless it's Urdu
-    if (query.length < _minQueryLength && !isUrduQuery) {
+    if (query.length < 2 && !isUrduQuery) {
       return;
     }
 
@@ -125,12 +209,11 @@ class SearchController extends GetxController {
 
     _lastQuery = query;
     _debounceTimer = Timer(const Duration(milliseconds: 300), () {
-      // Remove the await since we're in a void callback
-      performSearch(query); // Remove await
+      performSearch(query);
     });
   }
 
-  // Update performSearch to maintain all results
+  // Search with loading indicator and error handling
   Future<void> performSearch(String query) async {
     if (query.trim().isEmpty) return;
 
@@ -138,12 +221,22 @@ class SearchController extends GetxController {
       isLoading.value = true;
       await _saveRecentSearch(query.trim());
 
-      final results =
-          await _searchService.search(query, limit: 50); // Increased limit
+      final results = await _searchService.search(query, limit: 50);
       searchResults.assignAll(results);
+
+      // Reset the filter when performing a new search
+      selectedFilter.value = null;
     } catch (e) {
       debugPrint('Search error: $e');
       searchResults.clear();
+      Get.snackbar(
+        'Search Error',
+        'Could not complete search. Please try again.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Get.theme.colorScheme.errorContainer,
+        colorText: Get.theme.colorScheme.onErrorContainer,
+        duration: const Duration(seconds: 3),
+      );
     } finally {
       isLoading.value = false;
     }
@@ -162,12 +255,20 @@ class SearchController extends GetxController {
   }
 
   void setFilter(SearchResultType? type) {
-    selectedFilter.value = type;
-    // No need to perform new search, just update the UI with filtered results
+    debugPrint('Setting filter to: $type');
+    // Toggle filter if it's the same type
+    if (selectedFilter.value == type) {
+      selectedFilter.value = null;
+    } else {
+      selectedFilter.value = type;
+    }
+
+    // Force refresh the UI
     searchResults.refresh();
+    update();
   }
 
-  Future<void> startVoiceSearch() async {
+  Future<bool> startVoiceSearch() async {
     try {
       if (!_speechService.isAvailable) {
         Get.snackbar(
@@ -175,59 +276,84 @@ class SearchController extends GetxController {
           'Speech recognition is not available right now',
           snackPosition: SnackPosition.BOTTOM,
         );
-        return;
+        return false;
       }
 
       if (!isListening.value) {
         // Start listening
         isListening.value = true;
+        update();
+
+        Get.snackbar(
+          'Listening...',
+          'Speak now to search',
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 2),
+        );
+
         final success = await _speechService.listen(
           onResult: (text) {
-            // Check if the text contains Urdu characters
-            final isUrduText = text.contains(RegExp(r'[\u0600-\u06FF]'));
+            if (text.isNotEmpty) {
+              debugPrint('Speech recognized: $text');
 
-            // Update the correct search controller based on text language
-            if (isUrduText) {
-              urduSearchController.text = text;
+              // Check if the text contains Urdu characters
+              final isUrduText = _containsUrdu(text);
+
+              // Clear both text fields first to avoid conflict
               searchController.clear();
-            } else {
-              searchController.text = text;
               urduSearchController.clear();
+
+              // Update the correct search controller based on text language
+              if (isUrduText) {
+                urduSearchController.text = text;
+                isUrduMode.value = true;
+              } else {
+                searchController.text = text;
+                isUrduMode.value = false;
+              }
+
+              // Trigger search
+              performSearch(text);
+
+              // Update UI immediately
+              update();
             }
 
-            // Trigger search
-            performSearch(text);
+            // Stop listening
+            isListening.value = false;
+            update();
           },
         );
 
         if (!success) {
           isListening.value = false;
+          update();
+
           Get.snackbar(
             'Voice Search Failed',
             'Could not start voice recognition',
             snackPosition: SnackPosition.BOTTOM,
           );
-        } else {
-          Get.snackbar(
-            'Listening...',
-            'Speak now to search',
-            snackPosition: SnackPosition.BOTTOM,
-            duration: const Duration(seconds: 2),
-          );
+          return false;
         }
+        return true;
       } else {
         // Stop listening
         isListening.value = false;
         await _speechService.stop();
+        update();
+        return true;
       }
     } catch (e) {
       isListening.value = false;
+      update();
       debugPrint('Voice search error: $e');
       Get.snackbar(
         'Error',
         'An error occurred during voice search',
         snackPosition: SnackPosition.BOTTOM,
       );
+      return false;
     }
   }
 
@@ -248,63 +374,127 @@ class SearchController extends GetxController {
     try {
       final trimmedQuery = query.trim();
       var searches = List<String>.from(recentSearches);
+
+      // Remove if already exists (to reorder it to the top)
       searches.remove(trimmedQuery);
+
+      // Add to the beginning
       searches.insert(0, trimmedQuery);
+
+      // Limit to 5 items
       searches = searches.take(5).toList();
 
-      recentSearches.value = searches;
+      // Update UI and persistent storage
+      await _updateRecentSearchesList(searches);
 
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setStringList('recent_searches', searches);
       debugPrint('Saved recent search: $trimmedQuery');
     } catch (e) {
       debugPrint('Error saving recent search: $e');
     }
   }
 
-  void removeRecentSearch(String query) async {
+  Future<void> _updateRecentSearchesList(List<String> searches) async {
     try {
-      recentSearches.remove(query);
+      // Clear and reassign to trigger reactive updates
+      recentSearches.clear();
+      recentSearches.assignAll(searches);
+
+      // Save to shared preferences
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setStringList('recent_searches', recentSearches);
-      debugPrint('Removed recent search: $query');
+      await prefs.setStringList('recent_searches', searches);
+
+      // Force UI update
+      update();
+    } catch (e) {
+      debugPrint('Error updating recent searches: $e');
+    }
+  }
+
+  Future<bool> removeRecentSearch(String query) async {
+    try {
+      final searches = List<String>.from(recentSearches);
+      if (searches.remove(query)) {
+        await _updateRecentSearchesList(searches);
+        debugPrint('Removed recent search: $query');
+        return true;
+      }
+      return false;
     } catch (e) {
       debugPrint('Error removing recent search: $e');
+      return false;
     }
   }
 
-  void clearRecentSearches() async {
+  Future<bool> clearRecentSearches() async {
     try {
+      // Clear the list
       recentSearches.clear();
+
+      // Remove from persistent storage
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('recent_searches');
+
+      // Force UI update
+      update();
+
       debugPrint('Recent searches cleared');
+      return true;
     } catch (e) {
       debugPrint('Error clearing recent searches: $e');
+      return false;
     }
   }
 
-  // Add method to apply recent search
+  // Apply a recent search
   void applyRecentSearch(String query) {
-    if (query.contains(RegExp(r'[\u0600-\u06FF]'))) {
+    // Clear both fields first
+    searchController.clear();
+    urduSearchController.clear();
+
+    if (_containsUrdu(query)) {
       // Urdu text
       urduSearchController.text = query;
-      searchController.clear();
+      isUrduMode.value = true;
     } else {
       // English text
       searchController.text = query;
-      urduSearchController.clear();
+      isUrduMode.value = false;
     }
+
+    // Perform search with the query
     performSearch(query);
+
+    // Force UI update
+    update();
   }
 
-  // New method to immediately load searches
-  void _loadRecentSearchesNow() {
+  // Toggle between Urdu and English mode
+  void toggleSearchLanguage() {
+    // Toggle the mode
+    isUrduMode.value = !isUrduMode.value;
+
+    // Save the preference
     SharedPreferences.getInstance().then((prefs) {
-      final searches = prefs.getStringList('recent_searches') ?? [];
-      debugPrint('Loading recent searches: $searches');
-      recentSearches.value = searches;
-      recentSearches.refresh();
+      prefs.setBool('isUrduSearchMode', isUrduMode.value);
     });
+
+    // Preserve search text when switching
+    final currentText = searchQuery;
+    if (currentText.isNotEmpty) {
+      // Clear both fields first
+      searchController.clear();
+      urduSearchController.clear();
+
+      if (isUrduMode.value) {
+        // Switching to Urdu
+        urduSearchController.text = currentText;
+      } else {
+        // Switching to English
+        searchController.text = currentText;
+      }
+    }
+
+    // Force UI update
+    update();
   }
 }

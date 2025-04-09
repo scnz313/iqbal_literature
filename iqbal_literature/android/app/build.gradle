@@ -28,14 +28,10 @@ if (flutterRoot == null) {
     throw new RuntimeException("Flutter SDK not found. Define location with flutter.sdk in the local.properties file.")
 }
 
-def flutterVersionCode = localProperties.getProperty('flutter.versionCode')
-if (flutterVersionCode == null) {
-    flutterVersionCode = '1'
-}
-
+def flutterVersionCode = '8'  // Incremented from '2' to '3'
 def flutterVersionName = localProperties.getProperty('flutter.versionName')
 if (flutterVersionName == null) {
-    flutterVersionName = '1.0'
+    flutterVersionName = '1.1'
 }
 
 def kotlin_version = '1.9.22'
@@ -75,6 +71,19 @@ android {
         versionCode 10
         versionName "1.5.0"
         multiDexEnabled true
+        manifestPlaceholders = [
+            excludeAdIdPermission: "true",
+            applicationName: "io.flutter.app.FlutterApplication"
+        ]
+    }
+
+    signingConfigs {
+        release {
+            storeFile file('upload-keystore.jks')
+            storePassword '088281'
+            keyAlias 'upload'
+            keyPassword '088281'
+        }
     }
 
     buildTypes {
@@ -86,6 +95,12 @@ android {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    configurations {
+        all {
+            exclude group: 'com.google.android.gms', module: 'play-services-ads-identifier'
         }
     }
 
