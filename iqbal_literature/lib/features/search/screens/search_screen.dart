@@ -483,7 +483,8 @@ class SearchScreen extends GetView<app_search.SearchController> {
   Widget _buildSearchBar(BuildContext context) {
     final theme = Theme.of(context);
     final screenWidth = MediaQuery.of(context).size.width;
-    final isMobile = screenWidth < 600;
+    final isMobile = screenWidth < 720;
+    debugPrint('Screen Width: $screenWidth, isMobile: $isMobile');
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
