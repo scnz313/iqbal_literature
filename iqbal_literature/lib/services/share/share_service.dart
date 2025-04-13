@@ -12,6 +12,9 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:flutter/services.dart';
 import '../../utils/screenshot_util.dart';
+import 'package:path/path.dart' as path;
+import 'package:image/image.dart' as img;
+import 'package:url_launcher/url_launcher.dart';
 
 class ShareService {
   static Future<void> shareAsText(String title, String content) async {
@@ -30,6 +33,16 @@ class ShareService {
         final photos = await Permission.photos.status;
         if (photos.isDenied) {
           final result = await Permission.photos.request();
+          if (!result.isGranted) {
+            // Try requesting manage external storage as fallback
+            final manageStorage = await Permission.manageExternalStorage.status;
+            if (manageStorage.isDenied) {
+              final manageResult =
+                  await Permission.manageExternalStorage.request();
+              return manageResult.isGranted;
+            }
+            return manageStorage.isGranted;
+          }
           return result.isGranted;
         }
         return photos.isGranted;
@@ -37,6 +50,16 @@ class ShareService {
         final storage = await Permission.storage.status;
         if (storage.isDenied) {
           final result = await Permission.storage.request();
+          if (!result.isGranted) {
+            // Try requesting manage external storage as fallback
+            final manageStorage = await Permission.manageExternalStorage.status;
+            if (manageStorage.isDenied) {
+              final manageResult =
+                  await Permission.manageExternalStorage.request();
+              return manageResult.isGranted;
+            }
+            return manageStorage.isGranted;
+          }
           return result.isGranted;
         }
         return storage.isGranted;
@@ -72,155 +95,42 @@ class ShareService {
     Color backgroundColor = Colors.white,
     double containerWidth = 800,
   }) async {
-    GlobalKey previewContainer = GlobalKey();
-    OverlayEntry? overlayEntry;
-
     try {
-      final hasPermission = await _requestPermissions();
-      if (!hasPermission) {
-        throw Exception(
-            'Please grant storage access in Settings to share images');
-      }
+      // Convert widget to image
+      final RenderRepaintBoundary boundary =
+          contentWidget.key as RenderRepaintBoundary;
+      final ui.Image image = await boundary.toImage(pixelRatio: 3.0);
+      final ByteData? byteData =
+          await image.toByteData(format: ui.ImageByteFormat.png);
+      final Uint8List pngBytes = byteData!.buffer.asUint8List();
 
-      // Create temporary directory
-      final temp = await getTemporaryDirectory();
-      final dir = Directory('${temp.path}/share_images');
-      await dir.create(recursive: true);
-      await _clearOldFiles(dir);
+      // Get temporary directory
+      final tempDir = await getTemporaryDirectory();
+      final filePath = '${tempDir.path}/$filename.png';
 
-      // Create a unique filename
-      final imagePath =
-          '${dir.path}/${filename}_${DateTime.now().millisecondsSinceEpoch}.png';
+      // Save image to temporary file
+      final file = File(filePath);
+      await file.writeAsBytes(pngBytes);
 
-      // Validate background image path if provided
-      if (backgroundImage != null) {
-        try {
-          // Check if asset exists
-          await rootBundle.load(backgroundImage);
-        } catch (e) {
-          // Asset not found, use null instead
-          debugPrint('Background image not found: $backgroundImage');
-          backgroundImage = null;
-        }
-      }
-
-      // Create and insert overlay with responsive width
-      final overlayState = Overlay.of(context);
-      overlayEntry = OverlayEntry(
-        builder: (context) => Positioned(
-          left: -9999,
-          child: RepaintBoundary(
-            key: previewContainer,
-            child: Container(
-              width: containerWidth,
-              decoration: BoxDecoration(
-                color: backgroundColor,
-                image: backgroundImage != null
-                    ? DecorationImage(
-                        image: AssetImage(backgroundImage),
-                        fit: BoxFit.cover,
-                      )
-                    : null,
-              ),
-              padding: const EdgeInsets.all(30),
-              child: Material(
-                color: Colors.transparent,
-                child: contentWidget,
-              ),
-            ),
-          ),
-        ),
-      );
-
-      overlayState.insert(overlayEntry);
-
-      // Wait for widget to be rendered
-      await Future.delayed(const Duration(milliseconds: 200));
-
-      // Capture the image using the GlobalKey
-      final renderObject = previewContainer.currentContext?.findRenderObject()
-          as RenderRepaintBoundary?;
-      if (renderObject == null)
-        throw Exception('Failed to find render boundary');
-
-      // Calculate optimal pixel ratio based on content width
-      final pixelRatio =
-          ScreenshotUtil.calculateOptimalPixelRatio(containerWidth);
-
-      // Capture with optimal resolution
-      final imageBytes = await ScreenshotUtil.captureWidget(renderObject,
-          pixelRatio: pixelRatio);
-      if (imageBytes == null) throw Exception('Failed to capture screenshot');
-
-      // Save and share
-      final imageFile = File(imagePath);
-      await imageFile.writeAsBytes(imageBytes);
-
+      // Share the file using share_plus
       await Share.shareXFiles(
-        [XFile(imagePath)],
-        text: 'Shared via Iqbal Literature',
+        [XFile(filePath)],
+        text: 'Iqbal Literature',
       );
+
+      // Clean up temporary file after sharing
+      await file.delete();
     } catch (e) {
       debugPrint('Error sharing image: $e');
-      rethrow;
-    } finally {
-      overlayEntry?.remove();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to share image: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
-  // Create a content widget that can be used for both image capture and PDF generation
-  static Widget createContentWidget(
-    String title,
-    String content, {
-    String? backgroundImage,
-    Color backgroundColor = Colors.white,
-    double width = 800,
-    double fontSize = 18.0,
-  }) {
-    return Container(
-      width: width,
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        image: backgroundImage != null
-            ? DecorationImage(
-                image: AssetImage(backgroundImage),
-                fit: BoxFit.cover,
-                opacity: 0.3,
-              )
-            : null,
-      ),
-      padding: const EdgeInsets.all(30),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontFamily: 'JameelNooriNastaleeq',
-              fontSize: fontSize + 6, // Larger font for title
-              height: 2,
-              fontWeight: FontWeight.bold,
-            ),
-            textAlign: TextAlign.center,
-            textDirection: TextDirection.rtl,
-          ),
-          const SizedBox(height: 20),
-          Text(
-            content,
-            style: TextStyle(
-              fontFamily: 'JameelNooriNastaleeq',
-              fontSize: fontSize,
-              height: 2,
-            ),
-            textAlign: TextAlign.right,
-            textDirection: TextDirection.rtl,
-          ),
-        ],
-      ),
-    );
-  }
-
-  // New implementation that uses image-based approach for PDF generation
   static Future<void> shareAsPdf(
     BuildContext context,
     String title,
@@ -230,205 +140,52 @@ class ShareService {
     Color backgroundColor = Colors.white,
     Color textColor = Colors.black,
   }) async {
-    GlobalKey previewContainer = GlobalKey();
-    OverlayEntry? overlayEntry;
-
     try {
-      debugPrint('🚀 Starting PDF generation using image-based approach');
-      final hasPermission = await _requestPermissions();
-      if (!hasPermission) {
-        throw Exception('Please grant storage access in Settings to share PDF');
-      }
-
-      // Create temporary directory
-      final temp = await getTemporaryDirectory();
-      final dir = Directory('${temp.path}/share_pdfs');
-      await dir.create(recursive: true);
-      await _clearOldFiles(dir);
-
-      // Create a unique filename
-      final pdfPath =
-          '${dir.path}/${filename}_${DateTime.now().millisecondsSinceEpoch}.pdf';
-
-      // Validate background image
-      if (backgroundImagePath != null) {
-        try {
-          await rootBundle.load(backgroundImagePath);
-        } catch (e) {
-          debugPrint('Background image not found: $backgroundImagePath');
-          backgroundImagePath = null;
-        }
-      }
-
-      // Split content into pages (approximately 15 lines per page)
-      final contentLines = content.split('\n');
-      const int linesPerPage = 15;
-      final int pageCount = max(1, (contentLines.length / linesPerPage).ceil());
-      debugPrint(
-          '📝 Content has ${contentLines.length} lines, creating $pageCount pages');
-
       // Create PDF document
       final pdf = pw.Document();
-      final List<Uint8List> pageImages = [];
-      final overlayState = Overlay.of(context);
 
-      // Generate images for each page
-      for (int i = 0; i < pageCount; i++) {
-        final int startLine = i * linesPerPage;
-        final int endLine = min((i + 1) * linesPerPage, contentLines.length);
-        if (startLine >= contentLines.length) continue;
-
-        final List<String> pageLines = contentLines.sublist(startLine, endLine);
-        final String pageContent = pageLines.join('\n');
-
-        // Only show title on first page
-        final String pageTitle = i == 0 ? title : '';
-
-        // Create content widget for this page
-        final contentWidget = Material(
-          color: Colors.transparent,
-          child: createContentWidget(
-            pageTitle,
-            pageContent,
-            backgroundImage: backgroundImagePath,
-            backgroundColor: backgroundColor,
-            width: 595.0, // A4 width in points at 72 DPI
-          ),
-        );
-
-        // Capture image using overlay method (similar to shareAsImage)
-        final Uint8List? imageData =
-            await _capturePageAsImage(context, contentWidget, overlayState);
-
-        if (imageData != null) {
-          pageImages.add(imageData);
-        }
-      }
-
-      // Add each page image to the PDF
-      for (int i = 0; i < pageImages.length; i++) {
-        final pageImage = pageImages[i];
-        final pwImage = pw.MemoryImage(pageImage);
-
-        pdf.addPage(
-          pw.Page(
-            pageFormat: PdfPageFormat.a4,
-            build: (pw.Context context) {
-              return pw.Stack(
-                children: [
-                  // Page content from captured image
-                  pw.Positioned.fill(
-                    child: pw.Image(pwImage, fit: pw.BoxFit.contain),
-                  ),
-
-                  // Footer
-                  pw.Positioned(
-                    bottom: 20,
-                    left: 20,
-                    right: 20,
-                    child: pw.Row(
-                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                      children: [
-                        pw.Text(
-                          'Shared via Iqbal Literature',
-                          style: const pw.TextStyle(
-                            fontSize: 8,
-                            color: PdfColors.grey,
-                          ),
-                        ),
-                        pw.Text(
-                          'Page ${i + 1} of ${pageImages.length}',
-                          style: const pw.TextStyle(
-                            fontSize: 8,
-                            color: PdfColors.grey,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-        );
-      }
-
-      // Save the PDF
-      debugPrint(
-          '📄 Saving PDF with ${pdf.document.pdfPageList.pages.length} pages');
-      final file = File(pdfPath);
-      final pdfBytes = await pdf.save();
-
-      if (pdfBytes.isEmpty) {
-        throw Exception('Generated PDF is empty');
-      }
-
-      debugPrint('💾 PDF saved successfully: ${pdfBytes.length} bytes');
-      await file.writeAsBytes(pdfBytes);
-
-      if (!file.existsSync() || await file.length() == 0) {
-        throw Exception('Failed to save PDF file');
-      }
-
-      // Share the PDF
-      debugPrint('📤 Sharing PDF file: ${file.path}');
-      await Share.shareXFiles(
-        [XFile(pdfPath)],
-        text: 'Shared via Iqbal Literature',
-      );
-      debugPrint('✅ PDF shared successfully');
-    } catch (e) {
-      debugPrint('Error sharing PDF: $e');
-      rethrow;
-    }
-  }
-
-  // Helper method to capture a page as an image using overlay method
-  static Future<Uint8List?> _capturePageAsImage(
-    BuildContext context,
-    Widget contentWidget,
-    OverlayState overlayState, {
-    double pixelRatio = 3.0,
-  }) async {
-    final GlobalKey previewContainer = GlobalKey();
-    OverlayEntry? overlayEntry;
-
-    try {
-      // Create and insert overlay with the content widget
-      overlayEntry = OverlayEntry(
-        builder: (context) => Positioned(
-          left: -9999, // Position off-screen
-          child: RepaintBoundary(
-            key: previewContainer,
-            child: contentWidget,
-          ),
+      // Add page to PDF
+      pdf.addPage(
+        pw.Page(
+          build: (pw.Context context) {
+            return pw.Center(
+              child: pw.Text(
+                content,
+                style: pw.TextStyle(
+                  fontSize: 12,
+                  color: PdfColor.fromInt(textColor.value),
+                ),
+              ),
+            );
+          },
         ),
       );
 
-      overlayState.insert(overlayEntry);
+      // Get temporary directory
+      final tempDir = await getTemporaryDirectory();
+      final filePath = '${tempDir.path}/$filename.pdf';
 
-      // Wait for widget to be rendered
-      await Future.delayed(const Duration(milliseconds: 300));
+      // Save PDF to temporary file
+      final file = File(filePath);
+      await file.writeAsBytes(await pdf.save());
 
-      // Capture the image using the GlobalKey
-      final renderObject = previewContainer.currentContext?.findRenderObject()
-          as RenderRepaintBoundary?;
+      // Share the file using share_plus
+      await Share.shareXFiles(
+        [XFile(filePath)],
+        text: title,
+        subject: 'Iqbal Literature - $title',
+      );
 
-      if (renderObject == null) {
-        throw Exception('Failed to find render boundary for PDF page');
-      }
-
-      // Capture with optimal resolution
-      final ui.Image image = await renderObject.toImage(pixelRatio: pixelRatio);
-      final ByteData? byteData =
-          await image.toByteData(format: ui.ImageByteFormat.png);
-
-      return byteData?.buffer.asUint8List();
+      // Clean up temporary file after sharing
+      await file.delete();
     } catch (e) {
-      debugPrint('Error capturing page as image: $e');
-      return null;
-    } finally {
-      overlayEntry?.remove();
+      debugPrint('Error sharing PDF: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to share PDF: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
