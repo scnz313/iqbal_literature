@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
+import 'dart:ui' as ui;
 import 'package:get/get.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../features/poems/models/poem.dart';
 import 'share_service.dart';
+import 'pdf_creator.dart';
 
 class ShareBottomSheet extends StatelessWidget {
   final Poem poem;
@@ -46,10 +52,25 @@ class _ShareBottomSheetContent extends StatefulWidget {
 
 class _ShareBottomSheetContentState extends State<_ShareBottomSheetContent> {
   String? selectedBackground;
-  Color selectedColor = Colors.white;
+  Color selectedColor = Colors.white; // Initialize with default value
+  Color textColor = Colors.black; // Initialize with default value
   double fontSize = 18.0;
   bool isLoading = false;
   String? errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    // Use post frame callback to update colors based on theme after first build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+      setState(() {
+        selectedColor = isDark ? const Color(0xFF2C2C2C) : Colors.white;
+        textColor = isDark ? Colors.white : Colors.black;
+      });
+    });
+  }
 
   // Custom error handling
   void _handleError(Object e) {
@@ -88,15 +109,30 @@ class _ShareBottomSheetContentState extends State<_ShareBottomSheetContent> {
     Colors.green.shade50,
     Colors.pink.shade50,
     Colors.purple.shade50,
+    const Color(0xFF2C2C2C),
+    const Color(0xFF1F1F1F),
+    const Color(0xFF3A3A3A),
+    Colors.grey.shade800,
+    const Color(0xFF253238),
   ];
 
   Widget _buildPreviewWidget() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    bool needsDarkText = selectedColor.computeLuminance() > 0.5;
+    Color adaptiveTextColor = needsDarkText ? Colors.black : Colors.white;
+
+    // Use MediaQuery to get fixed dimensions - not affected by font size
+    final screenWidth = MediaQuery.of(context).size.width;
+
     return LayoutBuilder(
       builder: (context, constraints) => SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
         child: Container(
           constraints: BoxConstraints(
             maxWidth: constraints.maxWidth,
-            maxHeight: constraints.maxHeight * 0.6,
+            // Fixed height that doesn't grow with font size
+            maxHeight: screenWidth * 0.8,
           ),
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
@@ -118,36 +154,43 @@ class _ShareBottomSheetContentState extends State<_ShareBottomSheetContent> {
               ),
             ],
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                widget.poem.title,
-                style: TextStyle(
-                  fontFamily: 'JameelNooriNastaleeq',
-                  fontSize: fontSize + 6, // Larger font for title
-                  height: 2,
-                  fontWeight: FontWeight.bold,
+          child: DefaultTextStyle(
+            // Set default text style that won't affect other widgets
+            style: Theme.of(context).textTheme.bodyMedium!,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  widget.poem.title,
+                  style: TextStyle(
+                    fontFamily: 'JameelNooriNastaleeq',
+                    fontSize: fontSize + 6, // Larger font for title
+                    height: 2,
+                    fontWeight: FontWeight.bold,
+                    color: adaptiveTextColor,
+                  ),
+                  textAlign: TextAlign.center,
+                  textDirection: TextDirection.rtl,
                 ),
-                textAlign: TextAlign.center,
-                textDirection: TextDirection.rtl,
-              ),
-              const SizedBox(height: 20),
-              Flexible(
-                child: SingleChildScrollView(
-                  child: Text(
-                    widget.poem.cleanData,
-                    style: TextStyle(
-                      fontFamily: 'JameelNooriNastaleeq',
-                      fontSize: fontSize,
-                      height: 2,
+                const SizedBox(height: 20),
+                Expanded(
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    child: Text(
+                      widget.poem.cleanData,
+                      style: TextStyle(
+                        fontFamily: 'JameelNooriNastaleeq',
+                        fontSize: fontSize,
+                        height: 2,
+                        color: adaptiveTextColor,
+                      ),
+                      textAlign: TextAlign.right,
+                      textDirection: TextDirection.rtl,
                     ),
-                    textAlign: TextAlign.right,
-                    textDirection: TextDirection.rtl,
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -281,6 +324,16 @@ class _ShareBottomSheetContentState extends State<_ShareBottomSheetContent> {
   }
 
   Widget _buildColorSelector() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Use a filtered list of colors based on the theme mode
+    final visibleColors = colorOptions.where((color) {
+      // In dark mode, only show dark-friendly colors (darker colors)
+      // In light mode, only show light-friendly colors (lighter colors)
+      final isLightColor = color.computeLuminance() > 0.5;
+      return isDark ? !isLightColor : isLightColor;
+    }).toList();
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Column(
@@ -294,7 +347,8 @@ class _ShareBottomSheetContentState extends State<_ShareBottomSheetContent> {
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: colorOptions.map((color) {
+              children: visibleColors.map((color) {
+                final isSelected = selectedColor == color;
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: GestureDetector(
@@ -310,12 +364,21 @@ class _ShareBottomSheetContentState extends State<_ShareBottomSheetContent> {
                         color: color,
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: selectedColor == color
-                              ? Theme.of(context).primaryColor
+                          color: isSelected
+                              ? Theme.of(context).colorScheme.primary
                               : Colors.grey.shade300,
-                          width: selectedColor == color ? 2 : 1,
+                          width: isSelected ? 2 : 1,
                         ),
                       ),
+                      child: isSelected
+                          ? Icon(
+                              Icons.check,
+                              color: color.computeLuminance() > 0.5
+                                  ? Colors.black
+                                  : Colors.white,
+                              size: 20,
+                            )
+                          : null,
                     ),
                   ),
                 );
@@ -377,6 +440,64 @@ class _ShareBottomSheetContentState extends State<_ShareBottomSheetContent> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  void _handleShareError(BuildContext context, dynamic error) {
+    debugPrint('❌ Share error: $error');
+    Navigator.pop(context); // Close loading dialog
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          error.toString().contains('permission')
+              ? 'Please grant storage permission in app settings'
+              : 'Failed to share: ${error.toString()}',
+        ),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 3),
+        action: SnackBarAction(
+          label: 'Settings',
+          textColor: Colors.white,
+          onPressed: () {
+            openAppSettings();
+          },
+        ),
+      ),
+    );
+  }
+
+  void _showLoadingDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => WillPopScope(
+        onWillPop: () async => false,
+        child: Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    Theme.of(context).primaryColor,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Preparing to share...',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -501,15 +622,103 @@ class _ShareBottomSheetContentState extends State<_ShareBottomSheetContent> {
                       });
 
                       try {
-                        final imageWidget = Material(
-                          color: Colors.transparent,
-                          child: _buildPreviewWidget(),
+                        // First show loading dialog
+                        _showLoadingDialog(context);
+
+                        // Create a GlobalKey for the RepaintBoundary
+                        final renderKey = GlobalKey();
+
+                        // Build the widget that will be captured
+                        final captureWidget = RepaintBoundary(
+                          key: renderKey,
+                          child: Material(
+                            color: Colors.transparent,
+                            child: Container(
+                              width: MediaQuery.of(context).size.width * 0.9,
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: selectedColor,
+                                image: selectedBackground != null &&
+                                        selectedBackground!.isNotEmpty
+                                    ? DecorationImage(
+                                        image: AssetImage(selectedBackground!),
+                                        fit: BoxFit.cover,
+                                        opacity: 0.3,
+                                      )
+                                    : null,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    widget.poem.title,
+                                    style: TextStyle(
+                                      fontFamily: 'JameelNooriNastaleeq',
+                                      fontSize: fontSize + 6,
+                                      height: 2,
+                                      fontWeight: FontWeight.bold,
+                                      color:
+                                          selectedColor.computeLuminance() > 0.5
+                                              ? Colors.black
+                                              : Colors.white,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                    textDirection: TextDirection.rtl,
+                                  ),
+                                  const SizedBox(height: 20),
+                                  Text(
+                                    widget.poem.cleanData,
+                                    style: TextStyle(
+                                      fontFamily: 'JameelNooriNastaleeq',
+                                      fontSize: fontSize,
+                                      height: 2,
+                                      color:
+                                          selectedColor.computeLuminance() > 0.5
+                                              ? Colors.black
+                                              : Colors.white,
+                                    ),
+                                    textAlign: TextAlign.right,
+                                    textDirection: TextDirection.rtl,
+                                  ),
+                                  const SizedBox(height: 20),
+                                  Text(
+                                    'Shared via Iqbal Literature',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: (selectedColor.computeLuminance() >
+                                                  0.5
+                                              ? Colors.black
+                                              : Colors.white)
+                                          .withOpacity(0.7),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                         );
 
+                        // Insert widget into an overlay to render it
+                        final overlayEntry = OverlayEntry(
+                          builder: (context) => Positioned(
+                            left: -2000, // Position offscreen
+                            top: -2000,
+                            child: captureWidget,
+                          ),
+                        );
+
+                        // Add to overlay and wait for it to be built
+                        Overlay.of(context).insert(overlayEntry);
+
+                        // Wait for the widget to be built
+                        await Future.delayed(const Duration(milliseconds: 100));
+
                         if (context.mounted) {
+                          // Share the image using our improved service
                           await ShareService.shareAsImage(
                             context,
-                            imageWidget,
+                            captureWidget,
                             'poem_${widget.poem.id}',
                             backgroundColor: selectedColor,
                             backgroundImage: selectedBackground != null &&
@@ -519,11 +728,21 @@ class _ShareBottomSheetContentState extends State<_ShareBottomSheetContent> {
                             containerWidth:
                                 MediaQuery.of(context).size.width * 0.9,
                           );
+
+                          // Remove overlay entry
+                          overlayEntry.remove();
+
+                          // Close dialogs
                           if (mounted) {
-                            Navigator.pop(context);
+                            Navigator.pop(context); // Close loading dialog
+                            Navigator.pop(context); // Close bottom sheet
                           }
                         }
                       } catch (e) {
+                        // Close loading dialog if open
+                        if (Navigator.canPop(context)) {
+                          Navigator.pop(context);
+                        }
                         _handleError(e);
                       } finally {
                         if (mounted) {
@@ -538,7 +757,7 @@ class _ShareBottomSheetContentState extends State<_ShareBottomSheetContent> {
                     context: context,
                     icon: Icons.picture_as_pdf,
                     title: 'Share as PDF',
-                    subtitle: 'Create and share a PDF document',
+                    subtitle: 'Create a simple PDF document',
                     onTap: () async {
                       setState(() {
                         isLoading = true;
@@ -546,21 +765,24 @@ class _ShareBottomSheetContentState extends State<_ShareBottomSheetContent> {
                       });
 
                       try {
-                        await ShareService.shareAsPdf(
+                        final poemTitle = widget.poem.title;
+                        final poemContent = widget.poem.cleanData;
+                        final filenameBase = 'poem_${widget.poem.id}';
+
+                        // Use the new PDF generator
+                        final success = await IqbalPdfGenerator.sharePoemPdf(
                           context,
-                          widget.poem.title,
-                          widget.poem.cleanData,
-                          'poem_${widget.poem.id}',
-                          backgroundImagePath: selectedBackground != null &&
-                                  selectedBackground!.isNotEmpty
-                              ? selectedBackground
-                              : null,
-                          backgroundColor: selectedColor,
+                          poemTitle,
+                          poemContent,
+                          filenameBase,
                         );
-                        if (mounted) {
-                          Navigator.pop(context);
+
+                        // Only close bottom sheet if sharing succeeded
+                        if (success && mounted) {
+                          Navigator.pop(context); // Close bottom sheet
                         }
                       } catch (e) {
+                        debugPrint('❌ Error during PDF share flow: $e');
                         _handleError(e);
                       } finally {
                         if (mounted) {

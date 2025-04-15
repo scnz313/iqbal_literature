@@ -15,6 +15,12 @@ import '../../utils/screenshot_util.dart';
 import 'package:path/path.dart' as path;
 import 'package:image/image.dart' as img;
 import 'package:url_launcher/url_launcher.dart';
+import 'pdf_creator.dart';
+
+/// Helper class to find RenderRepaintBoundary in the render tree
+class FindRenderObjectVisitor {
+  RenderObject? foundObject;
+}
 
 class ShareService {
   static Future<void> shareAsText(String title, String content) async {
@@ -96,97 +102,144 @@ class ShareService {
     double containerWidth = 800,
   }) async {
     try {
-      // Convert widget to image
-      final RenderRepaintBoundary boundary =
-          contentWidget.key as RenderRepaintBoundary;
-      final ui.Image image = await boundary.toImage(pixelRatio: 3.0);
-      final ByteData? byteData =
-          await image.toByteData(format: ui.ImageByteFormat.png);
-      final Uint8List pngBytes = byteData!.buffer.asUint8List();
+      // Check permissions first
+      final hasPermission = await _requestPermissions();
+      if (!hasPermission) {
+        throw Exception('Storage permission is required');
+      }
 
-      // Get temporary directory
+      // Create a unique subfolder for sharing files
       final tempDir = await getTemporaryDirectory();
-      final filePath = '${tempDir.path}/$filename.png';
+      final shareDir = Directory('${tempDir.path}/iqbal_shares');
+      if (!await shareDir.exists()) {
+        await shareDir.create(recursive: true);
+      }
 
-      // Save image to temporary file
+      // Clear old temporary files
+      await _clearOldFiles(shareDir);
+
+      // Generate a unique filename with timestamp to avoid conflicts
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final uniqueFilename = '${filename}_$timestamp.png';
+      final filePath = '${shareDir.path}/$uniqueFilename';
+
+      // Capture widget to image using RepaintBoundary
+      final boundary = _findRepaintBoundary(contentWidget);
+      if (boundary == null) {
+        throw Exception('Could not find repaint boundary in widget');
+      }
+
+      // Try to capture with different pixel ratios if necessary (fallback mechanism)
+      Uint8List? pngBytes = await _captureWidgetWithFallback(boundary);
+      if (pngBytes == null) {
+        throw Exception('Failed to capture widget as image');
+      }
+
+      // Save image to file
       final file = File(filePath);
       await file.writeAsBytes(pngBytes);
 
       // Share the file using share_plus
       await Share.shareXFiles(
         [XFile(filePath)],
-        text: 'Iqbal Literature',
+        text: 'Shared via Iqbal Literature',
+        subject: 'Iqbal Literature Verse',
       );
 
-      // Clean up temporary file after sharing
-      await file.delete();
+      // Don't delete right away, as some share handlers may access the file after the share sheet is dismissed
+      // File cleanup will happen on next run via _clearOldFiles
     } catch (e) {
       debugPrint('Error sharing image: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to share image: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (e.toString().contains('permission')) {
+        _showPermissionErrorSnackbar(context);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to share image: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+            action: SnackBarAction(
+              label: 'Settings',
+              textColor: Colors.white,
+              onPressed: () {
+                openAppSettings();
+              },
+            ),
+          ),
+        );
+      }
     }
   }
 
-  static Future<void> shareAsPdf(
-    BuildContext context,
-    String title,
-    String content,
-    String filename, {
-    String? backgroundImagePath,
-    Color backgroundColor = Colors.white,
-    Color textColor = Colors.black,
-  }) async {
+  // Helper method to find RepaintBoundary in widget
+  static RenderRepaintBoundary? _findRepaintBoundary(Widget widget) {
     try {
-      // Create PDF document
-      final pdf = pw.Document();
+      // Wait for the next frame to ensure the widget is built
+      RenderRepaintBoundary? boundary;
 
-      // Add page to PDF
-      pdf.addPage(
-        pw.Page(
-          build: (pw.Context context) {
-            return pw.Center(
-              child: pw.Text(
-                content,
-                style: pw.TextStyle(
-                  fontSize: 12,
-                  color: PdfColor.fromInt(textColor.value),
-                ),
-              ),
-            );
-          },
-        ),
-      );
+      // If the widget is passed as a GlobalKey<State> based widget
+      if (widget is RepaintBoundary && widget.key is GlobalKey) {
+        final key = widget.key as GlobalKey;
+        if (key.currentContext != null) {
+          final renderObject = key.currentContext!.findRenderObject();
+          if (renderObject is RenderRepaintBoundary) {
+            boundary = renderObject;
+          }
+        }
+      } else if (widget.key is GlobalKey) {
+        final key = widget.key as GlobalKey;
+        if (key.currentContext != null) {
+          // Try to find the first RenderRepaintBoundary in the subtree
+          final renderObject = key.currentContext!.findRenderObject();
+          FindRenderObjectVisitor visitor = FindRenderObjectVisitor();
+          visitChildElements(key.currentContext!.findRenderObject(), visitor);
+          boundary = visitor.foundObject as RenderRepaintBoundary?;
+        }
+      }
 
-      // Get temporary directory
-      final tempDir = await getTemporaryDirectory();
-      final filePath = '${tempDir.path}/$filename.pdf';
-
-      // Save PDF to temporary file
-      final file = File(filePath);
-      await file.writeAsBytes(await pdf.save());
-
-      // Share the file using share_plus
-      await Share.shareXFiles(
-        [XFile(filePath)],
-        text: title,
-        subject: 'Iqbal Literature - $title',
-      );
-
-      // Clean up temporary file after sharing
-      await file.delete();
+      return boundary;
     } catch (e) {
-      debugPrint('Error sharing PDF: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to share PDF: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      debugPrint('Error finding repaint boundary: $e');
+      return null;
     }
+  }
+
+  // Visitor pattern to find RenderRepaintBoundary in the render tree
+  static void visitChildElements(
+      RenderObject? renderObject, FindRenderObjectVisitor visitor) {
+    if (renderObject == null) return;
+    if (renderObject is RenderRepaintBoundary) {
+      visitor.foundObject = renderObject;
+      return;
+    }
+
+    // Continue searching
+    renderObject.visitChildren((child) {
+      visitChildElements(child, visitor);
+    });
+  }
+
+  static Future<Uint8List?> _captureWidgetWithFallback(
+      RenderRepaintBoundary boundary) async {
+    // Try with high resolution first, then fall back to lower resolutions
+    final pixelRatios = [3.0, 2.0, 1.5, 1.0];
+
+    for (final ratio in pixelRatios) {
+      try {
+        final ui.Image image = await boundary.toImage(pixelRatio: ratio);
+        final ByteData? byteData =
+            await image.toByteData(format: ui.ImageByteFormat.png);
+        if (byteData != null) {
+          return byteData.buffer.asUint8List();
+        }
+      } catch (e) {
+        debugPrint('Error capturing with pixel ratio $ratio: $e');
+        // Continue to next pixel ratio
+        continue;
+      }
+    }
+
+    return null; // All attempts failed
   }
 
   static Future<void> _clearOldFiles(Directory dir) async {
@@ -207,5 +260,25 @@ class ShareService {
     } catch (e) {
       debugPrint('Error clearing old files: $e');
     }
+  }
+
+  static void _showPermissionErrorSnackbar(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text(
+          'Storage permission is required to share files',
+          style: TextStyle(color: Colors.white),
+        ),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: 'Settings',
+          textColor: Colors.white,
+          onPressed: () {
+            openAppSettings();
+          },
+        ),
+      ),
+    );
   }
 }

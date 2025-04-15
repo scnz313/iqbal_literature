@@ -5,6 +5,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'utils/responsive_util.dart';
+import 'utils/font_downloader.dart';
 import 'config/routes/app_pages.dart';
 import 'firebase_options.dart';
 import 'services/cache/cache_service.dart';
@@ -69,6 +70,11 @@ Future<void> main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+
+    // Preload fonts for PDF export in the background
+    FontDownloader.preloadFonts().then((_) {
+      debugPrint('✅ Font preloading completed for PDF export');
+    });
 
     // Initialize services
     await CacheService.init();

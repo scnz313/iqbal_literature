@@ -28,7 +28,7 @@ if (flutterRoot == null) {
     throw new RuntimeException("Flutter SDK not found. Define location with flutter.sdk in the local.properties file.")
 }
 
-def flutterVersionCode = '8'  // Incremented from '2' to '3'
+def flutterVersionCode = '9'  // Incremented from '8' to '9'
 def flutterVersionName = localProperties.getProperty('flutter.versionName')
 if (flutterVersionName == null) {
     flutterVersionName = '1.1'
@@ -68,22 +68,13 @@ android {
         applicationId "com.iqbalbook.iqbal_literature"
         minSdkVersion flutter.minSdkVersion
         targetSdkVersion flutter.targetSdkVersion
-        versionCode 11
+        versionCode 15
         versionName "1.5.0"
         multiDexEnabled true
         manifestPlaceholders = [
             excludeAdIdPermission: "true",
             applicationName: "io.flutter.app.FlutterApplication"
         ]
-    }
-
-    signingConfigs {
-        release {
-            storeFile file('upload-keystore.jks')
-            storePassword '088281'
-            keyAlias 'upload'
-            keyPassword '088281'
-        }
     }
 
     buildTypes {

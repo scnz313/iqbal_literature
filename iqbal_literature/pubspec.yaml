@@ -66,6 +66,7 @@ dependencies:
 
   # AI
   google_generative_ai: ^0.2.0
+  syncfusion_flutter_pdf: ^25.2.7
 
 dev_dependencies:
   flutter_test:
@@ -89,6 +90,9 @@ flutter:
     - assets/database/data.db
     - assets/fonts/
     - assets/fonts/JameelNooriNastaleeq.ttf
+    - assets/fonts/Jameel-Noori-Nastaleeq-Regular.ttf
+    - assets/fonts/MehrNastaliq-Regular.ttf
+    - assets/fonts/NotoNastaliqUrdu-Regular.ttf
     - assets/images/notebook_lines.png
     - assets/icon/
     - assets/images/backgrounds/
@@ -97,6 +101,7 @@ flutter:
     - family: JameelNooriNastaleeq
       fonts:
         - asset: assets/fonts/JameelNooriNastaleeq.ttf
+        - asset: assets/fonts/Jameel-Noori-Nastaleeq-Regular.ttf
 
 flutter_native_splash:
   color: "#FFFFFF"
