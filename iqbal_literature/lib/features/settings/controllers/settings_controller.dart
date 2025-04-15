@@ -48,12 +48,14 @@ class SettingsController extends GetxController {
 
   Future<void> loadSettings() async {
     try {
-      // Load theme
-      final savedTheme = _storageService.read<String>('theme');
-      if (savedTheme != null) {
+      // Load theme setting
+      final savedTheme = _storageService.read<String>('theme') ?? 'system';
+      if (currentTheme.value != savedTheme) {
+        // Check if update is needed
         currentTheme.value = savedTheme;
-        _themeProvider.setThemeMode(_getThemeMode(savedTheme));
       }
+      // No need to call themeProvider here, its init/loadTheme handles it
+      // Removed: _themeProvider.setThemeMode(_getThemeMode(savedTheme));
 
       // Load language
       final savedLanguage = _storageService.read<String>('language');
@@ -100,27 +102,18 @@ class SettingsController extends GetxController {
 
   Future<void> changeTheme(String theme) async {
     try {
+      if (currentTheme.value == theme) return;
+
       currentTheme.value = theme;
-      await _storageService.write('theme', theme);
-      _themeProvider.setThemeMode(_getThemeMode(theme));
+      _themeProvider.changeThemeSetting(theme);
 
       _analyticsService.logEvent(
         name: 'change_theme',
         parameters: {'theme': theme},
       );
+      debugPrint("SettingsController: Called changeThemeSetting with '$theme'");
     } catch (e) {
-      debugPrint('Error changing theme: $e');
-    }
-  }
-
-  ThemeMode _getThemeMode(String theme) {
-    switch (theme) {
-      case 'light':
-        return ThemeMode.light;
-      case 'dark':
-        return ThemeMode.dark;
-      default:
-        return ThemeMode.system;
+      debugPrint('Error changing theme in SettingsController: $e');
     }
   }
 

@@ -123,7 +123,7 @@ flutter_native_splash:
 flutter_icons:
   android: true
   ios: true
-  image_path: "assets/icon/iqbalApp_logo_1024.png"
+  image_path: "assets/icon/iqbalApp_logo.png"
   adaptive_icon_background: "#FFFFFF"
   adaptive_icon_foreground: "assets/icon/iqbalApp_logo_108.png"
 

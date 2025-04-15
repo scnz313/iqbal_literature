@@ -44,6 +44,7 @@ class SettingsScreen extends GetView<SettingsController> {
                     _buildThemeOption(context, 'System', 'system'),
                     _buildThemeOption(context, 'Light', 'light'),
                     _buildThemeOption(context, 'Dark', 'dark'),
+                    _buildThemeOption(context, 'Sepia', 'sepia'),
                   ],
                 )),
           ),

@@ -27,11 +27,11 @@ class AppTheme {
       behavior: SnackBarBehavior.floating,
       shape: AppDecorations.defaultSnackBarShape,
     ),
+    dividerColor: AppColorSchemes.dividerColor,
   );
-  
+
   static final ThemeData darkTheme = ThemeData(
     brightness: Brightness.dark,
-
     useMaterial3: true,
     colorScheme: AppColorSchemes.darkColorScheme,
     textTheme: AppTextStyles.textTheme,
@@ -53,5 +53,49 @@ class AppTheme {
       behavior: SnackBarBehavior.floating,
       shape: AppDecorations.defaultSnackBarShape,
     ),
+    dividerColor: AppColorSchemes.dividerColor,
+  );
+
+  static final ThemeData sepiaTheme = ThemeData(
+    brightness: Brightness.light,
+    useMaterial3: true,
+    colorScheme: AppColorSchemes.sepiaColorScheme,
+    textTheme: AppTextStyles.textTheme.apply(
+      bodyColor: AppColorSchemes.sepiaColorScheme.onSurface,
+      displayColor: AppColorSchemes.sepiaColorScheme.onSurface,
+    ),
+    scaffoldBackgroundColor: AppColorSchemes.sepiaColorScheme.surface,
+    appBarTheme: AppBarTheme(
+      elevation: 1,
+      centerTitle: true,
+      backgroundColor: AppColorSchemes.sepiaColorScheme.primary,
+      foregroundColor: AppColorSchemes.sepiaColorScheme.onPrimary,
+      titleTextStyle: AppTextStyles.textTheme.titleLarge?.copyWith(
+        color: AppColorSchemes.sepiaColorScheme.onPrimary,
+      ),
+    ),
+    cardTheme: CardThemeData(
+      elevation: 1,
+      shape: AppDecorations.defaultCardShape,
+      margin: AppDecorations.defaultCardMargin,
+      color: AppColorSchemes.sepiaColorScheme.surface,
+      shadowColor: AppColorSchemes.sepiaColorScheme.primary.withOpacity(0.2),
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: AppDecorations.elevatedButtonStyle.copyWith(
+        backgroundColor:
+            MaterialStateProperty.all(AppColorSchemes.sepiaColorScheme.primary),
+        foregroundColor: MaterialStateProperty.all(
+            AppColorSchemes.sepiaColorScheme.onPrimary),
+      ),
+    ),
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      shape: AppDecorations.defaultSnackBarShape,
+      backgroundColor: AppColorSchemes.sepiaColorScheme.onSurface,
+      contentTextStyle:
+          TextStyle(color: AppColorSchemes.sepiaColorScheme.surface),
+    ),
+    dividerColor: AppColorSchemes.dividerColor,
   );
 }

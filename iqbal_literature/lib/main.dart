@@ -212,9 +212,9 @@ class MyApp extends StatelessWidget {
               initialRoute: AppPages.initial,
               getPages: AppPages.routes,
 
-              // Theme configuration
-              theme: AppTheme.lightTheme,
-              darkTheme: AppTheme.darkTheme,
+              // Theme configuration using the new ThemeProvider logic
+              theme: themeProvider.currentThemeData,
+              darkTheme: themeProvider.darkTheme,
               themeMode: themeProvider.themeMode,
               defaultTransition: Transition.fadeIn,
 
