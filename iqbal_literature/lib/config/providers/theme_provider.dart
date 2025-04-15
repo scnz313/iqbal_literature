@@ -54,13 +54,24 @@ class ThemeProvider extends GetxController {
       if (_themeSetting.value == setting) return; // No change needed
 
       _themeSetting.value = setting;
-      _themeMode.value = _calculateThemeMode(setting);
+      final newMode = _calculateThemeMode(setting);
+      if (_themeMode.value != newMode) {
+        _themeMode.value = newMode;
+        // Explicitly change theme mode if it differs
+        Get.changeThemeMode(newMode);
+        debugPrint("ThemeProvider: Changed ThemeMode to $newMode");
+      }
 
-      // Apply the change visually
-      // Get.changeThemeMode(_themeMode.value); // This might not be enough if GetMaterialApp is not setup correctly
-      Get.changeTheme(currentThemeData); // Force theme data update
+      // Apply the specific theme data
+      // Get.changeTheme(currentThemeData); // Might be redundant if changeThemeMode works
+      // Let's rely on GetMaterialApp reacting to themeMode change first.
+      // If needed, we can re-add Get.changeTheme(currentThemeData)
 
       saveThemeSetting(setting); // Save the user's choice
+      debugPrint("ThemeProvider: Set theme setting to '$setting'");
+
+      // Force update GetMaterialApp theme properties by triggering Obx rebuild
+      update(); // Notify listeners of ThemeProvider
     } catch (e) {
       debugPrint('Error changing theme setting: $e');
     }
@@ -111,22 +122,16 @@ class ThemeProvider extends GetxController {
   ThemeData get currentThemeData {
     switch (_themeSetting.value) {
       case 'sepia':
-        debugPrint("Applying Sepia Theme");
+        debugPrint("Providing Sepia Theme");
         return sepiaTheme;
-      case 'light':
-        debugPrint("Applying Light Theme");
-        return lightTheme;
       case 'dark':
-        debugPrint("Applying Dark Theme");
+        debugPrint("Providing Dark Theme");
         return darkTheme;
-      case 'system':
+      case 'light':
+      case 'system': // For system, provide the light theme; GetMaterialApp handles dark mode.
       default:
-        // Use system brightness to decide between light/dark
-        final brightness = Get.mediaQuery.platformBrightness;
-        debugPrint("Applying System Theme (Brightness: $brightness)");
-        return brightness == Brightness.dark ? darkTheme : lightTheme;
-      // Alternatively, could return lightTheme and let GetMaterialApp handle darkTheme via themeMode
-      // return lightTheme;
+        debugPrint("Providing Light Theme (System/Light setting)");
+        return lightTheme;
     }
   }
 }

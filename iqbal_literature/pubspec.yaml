@@ -105,16 +105,16 @@ flutter:
 
 flutter_native_splash:
   color: "#FFFFFF"
-  image: assets/icon/iqbalApp_logo_1024.png    # Updated splash image
+  image: assets/icon/iqbalApp_logo.png
   color_dark: "#121212"
-  image_dark: assets/icon/iqbalApp_logo_1024.png  # Optionally use same image for dark mode or update accordingly
+  image_dark: assets/icon/iqbalApp_logo.png
   android: true
   ios: true
   web: false
   android_12:
-    image: assets/icon/iqbalApp_logo_1024.png     # Updated for Android 12
+    image: assets/icon/iqbalApp_logo.png
     icon_background_color: "#FFFFFF"
-    image_dark: assets/icon/iqbalApp_logo_1024.png  # Optionally update
+    image_dark: assets/icon/iqbalApp_logo.png
     icon_background_color_dark: "#121212"
   fullscreen: true
   android_gravity: center
@@ -125,7 +125,7 @@ flutter_icons:
   ios: true
   image_path: "assets/icon/iqbalApp_logo.png"
   adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: "assets/icon/iqbalApp_logo_108.png"
+  adaptive_icon_foreground: "assets/icon/iqbalApp_logo.png"
 
 
 
