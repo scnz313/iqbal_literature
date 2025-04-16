@@ -68,7 +68,7 @@ android {
         applicationId "com.iqbalbook.iqbal_literature"
         minSdkVersion flutter.minSdkVersion
         targetSdkVersion flutter.targetSdkVersion
-        versionCode 16
+        versionCode 17
         versionName "1.5.0"
         multiDexEnabled true
         manifestPlaceholders = [
